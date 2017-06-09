@@ -1,3 +1,11 @@
+    """    
+    Tests the functions in the pixutils module.
+    
+    Created by Samantha Lavender, June 2017.
+    Copyright © 2017 Pixalytics Ltd. All rights reserved.
+
+    """
+
 # Python 2 / 3 compatability
 from __future__ import print_function
 try:

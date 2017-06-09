@@ -1,3 +1,15 @@
+    """    
+    Performs conversions from julian day (more correct term is day of year) to year,month,date and in the other direction.
+    
+    Arguments:
+       Jday = day(Year,Month,Day)
+       Year,Month,Day = day(Year,Jday)
+
+    Created by Samantha Lavender, June 2017.
+    Copyright © 2017 Pixalytics Ltd. All rights reserved.
+
+    """
+
 import datetime
 
 def is_leap_year(year):
