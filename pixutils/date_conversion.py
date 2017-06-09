@@ -1,27 +1,24 @@
-    """    
-    Performs conversions from julian day (more correct term is day of year) to year,month,date and in the other direction.
+# 
+#     Performs conversions from julian day (more correct term is day of year) to year,month,date and in the other direction.
     
-    Arguments:
-       Jday = day(Year,Month,Day)
-       Year,Month,Day = day(Year,Jday)
+#     Arguments:
+#        Jday = day(Year,Month,Day)
+#        Year,Month,Day = day(Year,Jday)
 
-    Created by Samantha Lavender, June 2017.
-    Copyright © 2017 Pixalytics Ltd. All rights reserved.
-
-    """
+#     Created by Samantha Lavender, June 2017.
+#     Copyright © 2017 Pixalytics Ltd. All rights reserved.
 
 import datetime
 
 def is_leap_year(year):
-    """ if year is a leap year return True
-        else return False """
+#   if year is a leap year return True else return False
     if year % 100 == 0:
         return year % 400 == 0
     return year % 4 == 0
 
 def doy(Y,M,D):
-    """ given year, month, day return day of year
-        Astronomical Algorithms, Jean Meeus, 2d ed, 1998, chap 7 """
+# given year, month, day return day of year
+# Astronomical Algorithms, Jean Meeus, 2d ed, 1998, chap 7 """
     if is_leap_year(Y):
         K = 1
     else:
@@ -30,8 +27,8 @@ def doy(Y,M,D):
     return N
 
 def ymd(Y,N):
-    """ given year = Y and day of year = N, return year, month, day
-        Astronomical Algorithms, Jean Meeus, 2d ed, 1998, chap 7 """    
+# given year = Y and day of year = N, return year, month, day
+# Astronomical Algorithms, Jean Meeus, 2d ed, 1998, chap 7 """    
     if is_leap_year(Y):
         K = 1
     else:
