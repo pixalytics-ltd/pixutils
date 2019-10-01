@@ -3,7 +3,7 @@ from collections import namedtuple
 
 #   https://sentinel.esa.int/web/sentinel/technical-guides/sentinel-1-sar/products-algorithms/level-1-product-formatting
 SENTINEL_FILENAME_PATTERN = \
-    r"(\w{3})_(\w{2})_(\w{3})(\w)_(\d)(\D)(\D{2})_((\d{8})T(\d{6}))_((\d{8})T(\d{6}))_(\d{6})_(\d{6})_(\w{4})\.(.*)"
+    r"(\w{3})_(\w{2})_(\w{3})(\w)_(\d)(\D)(\D{2})_((\d{8})T(\d{6}))_((\d{8})T(\d{6}))_(\d{6})_(\w{6})_(\w{4})\.(.*)"
 _SENTINEL_FILENAME_REGEX = re.compile(SENTINEL_FILENAME_PATTERN, re.IGNORECASE)
 
 _SENTINEL_IDENTIFIER_TO_GROUP_ID = {
