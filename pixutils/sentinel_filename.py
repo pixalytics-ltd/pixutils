@@ -21,7 +21,7 @@ _SENTINEL_IDENTIFIER_TO_GROUP_ID = {
     "stop_date_time": 11,
     "stop_date": 12,
     "stop_time": 13,
-    "absolute_order_number": 14,
+    "absolute_orbit_number": 14,
     "mission_data_take_id": 15,
     "product_unique_identifier": 16,
     "product_format_extension": 17
