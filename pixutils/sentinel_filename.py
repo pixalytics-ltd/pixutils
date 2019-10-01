@@ -2,7 +2,8 @@ import re
 from collections import namedtuple
 
 #   https://sentinel.esa.int/web/sentinel/technical-guides/sentinel-1-sar/products-algorithms/level-1-product-formatting
-SENTINEL_FILENAME_PATTERN = r"(\w{3})_(\w{2})_(\w{3})(\w)_(\d)(\D)(\D{2})_((\d{8})T(\d{6}))_((\d{8})T(\d{6}))_(\d{6})_(\d{6})_(\w{4})\.(.*)"
+SENTINEL_FILENAME_PATTERN = \
+    r"(\w{3})_(\w{2})_(\w{3})(\w)_(\d)(\D)(\D{2})_((\d{8})T(\d{6}))_((\d{8})T(\d{6}))_(\d{6})_(\d{6})_(\w{4})\.(.*)"
 _SENTINEL_FILENAME_REGEX = re.compile(SENTINEL_FILENAME_PATTERN, re.IGNORECASE)
 
 _SENTINEL_IDENTIFIER_TO_GROUP_ID = {
@@ -30,12 +31,14 @@ _SENTINEL_IDENTIFIER_TO_GROUP_ID = {
 SentinelProductInfo = namedtuple("SentinelProductInfo", sorted(_SENTINEL_IDENTIFIER_TO_GROUP_ID))
 
 
-def parse_sentinel_filename(filename: str):
+def parse_sentinel_filename(filename):
     """
     Extracts details from a Sentinel filename using the schema defined at:
     https://sentinel.esa.int/web/sentinel/technical-guides/sentinel-1-sar/products-algorithms/level-1-product-formatting
     :param filename: a filename string that can include a full path
+    :type filename: str
     :return: a SentinelProductInfo object containing all fields extracted from the filename
+    :rtype: SentinelProductInfo
     :raises ValueError: if the filename doesn't appear to match the schema
     """
     match = _SENTINEL_FILENAME_REGEX.search(filename)
@@ -47,5 +50,5 @@ def parse_sentinel_filename(filename: str):
         #   use the output dictionary to build the output class
         return SentinelProductInfo(**d)
     else:
-        raise ValueError(f"'{filename}' does not appear to be a valid Sentinel filename pattern.")
+        raise ValueError("'{}' does not appear to be a valid Sentinel filename pattern.".format(filename))
 
