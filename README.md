@@ -23,8 +23,11 @@ Contains functions to download NetFlux data from NASA's CERES sensor.
 ```bash
 usage: ceres_download.py [-h] date output_dir
 
+Download CERES NetFlux data from the NASA servers. Daily and monthly products
+are currently supported.
+
 positional arguments:
-  date        Date of data to be obtained (format: YYYY-MM-DD)
+  date        Date of data to be obtained (format: YYYY-MM-DD or YYYY-MM)
   output_dir  Destination directory for downloaded data
 
 optional arguments:
@@ -34,9 +37,11 @@ optional arguments:
 * As an import in to Python code
 ```python
 import os
-from datetime import datetime
 from pixutils import download_ceres_netflux
 
-filename = download_ceres_netflux(date=datetime(2020, 1, 1).date(), output_dir=os.path.expanduser("~"))
-print("File was downloaded to '{}'.".format(filename))
+daily_filename = download_ceres_netflux(output_dir=os.path.expanduser("~"), year=2020, month=1, day=1)
+print("Daily NetFlux product was downloaded to '{}'.".format(daily_filename))
+
+monthly_filename = download_ceres_netflux(output_dir=os.path.expanduser("~"), year=2020, month=1)
+print("Monthly NetFlux product was downloaded to '{}'.".format(monthly_filename))
 ```
