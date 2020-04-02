@@ -44,8 +44,8 @@ map_var_names = {
 
 #   recognized file extensions should be specified in lower case
 ext_to_file_type = {
-    "grib": "grib",
-    "nc": "netcdf",
+    ".grib": "grib",
+    ".nc": "netcdf",
 }
 
 
