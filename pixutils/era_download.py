@@ -1,6 +1,11 @@
+#!/usr/bin/env python
+
+import argparse
+import sys
+import os
 import cdsapi
 from pathlib import Path
-from datetime import date, time
+from datetime import date, time, datetime
 from typing import List, Union
 from enum import Enum, unique, auto
 
@@ -49,10 +54,10 @@ ext_to_file_type = {
 }
 
 
-def download_era5_reanalysis_data(variables: Union[Var, List[Var]],
+def download_era5_reanalysis_data(variables: Union[Var, List[Var], List[str]],
                                   dates: Union[date, List[date]],
                                   times: Union[time, List[time]],
-                                  file_path: str) -> bool:
+                                  file_path: str) -> None:
     """
     Download data from the the Copernicus Climate Data Store
     :param variables: a list of fields to be downloaded on the specified dates and times
@@ -74,26 +79,89 @@ def download_era5_reanalysis_data(variables: Union[Var, List[Var]],
     def time_str(t: time) -> str:
         return t.strftime("%H:%M")
 
+    def parse_variables() -> List[str]:
+        if isinstance(variables, List):
+            result = set()
+            for variable in variables:
+                if isinstance(variable, Var):
+                    #   if item is an Enum (preferred) lookup the string representation
+                    result.add(map_var_names[variable])
+                elif isinstance(variable, str):
+                    #   if item is a string (generally passed from command line) check the variable name is valid
+                    #   and add to list
+                    if variable in map_var_names.values():
+                        result.add(variable)
+                    else:
+                        print("'{}' is not a valid variable identifier.".format(variable))
+            return list(result)
+        elif isinstance(variables, str):
+            return map_var_names[variables]
+
     #   convert each parameter into unique lists
     years = list({_date.year for _date in dates}) if isinstance(dates, List) else [dates.year]
     months = list({_date.month for _date in dates}) if isinstance(dates, List) else [dates.month]
     days = list({_date.day for _date in dates}) if isinstance(dates, List) else [dates.day]
     times = list({time_str(_time) for _time in times}) if isinstance(times, List) else [time_str(times)]
-    vars = list({map_var_names[variable] for variable in variables}) if isinstance(variables, List) else [map_var_names[variables]]
-    format = ext_to_file_type[extension]
+    variables = parse_variables()
+    file_format = ext_to_file_type[extension]
 
     c = cdsapi.Client()
     c.retrieve(
         'reanalysis-era5-single-levels',
         {
             'product_type': 'reanalysis',
-            'variable': vars,
+            'variable': variables,
             'year': years,
             'month': months,
             'day': days,
             'time': times,
-            'format': format,
+            'format': file_format,
         },
         file_path)
 
-    return True
+    if not os.path.isfile(file_path):
+        raise RuntimeError("Unable to locate output file '{}'.".format(file_path))
+
+    print("Downloaded data was saved to '{}'.".format(file_path))
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("variables", nargs="+", help="Specify one or more variables to be downloaded."
+                                                     "  Supported variables: [{}]"
+                        .format(", ".join(map_var_names.values())))
+    parser.add_argument("-d", "--dates", nargs="+", help="Date of the data set to be downloaded (format: YYYY-MM-DD)")
+    parser.add_argument("-t", "--times", nargs="+", help="Time of the data set to be downloaded (format: HH:MM)")
+    parser.add_argument("-o", "--out_file", nargs=1, help="Filename for the downloaded data.")
+
+    args = parser.parse_args()
+    dates = [datetime.strptime(d, "%Y-%m-%d").date() for d in args.dates] if args.dates is not None else []
+    times = [datetime.strptime(t, "%H:%M").time() for t in args.times] if args.times is not None else []
+    file_path = os.path.expanduser(args.out_file[0]) if args.out_file is not None else None
+
+    if file_path is None:
+        print("Missing 'out_file' argument.")
+        return 1
+
+    if len(dates) == 0:
+        print("Missing 'dates' argument.")
+        return 1
+
+    if len(times) == 0:
+        print("Missing 'times' argument.")
+        return 1
+
+    try:
+        download_era5_reanalysis_data(dates=dates, times=times, variables=args.variables, file_path=file_path)
+
+        return 0
+    except ValueError as ex:
+        print("Program failed due to an invalid parameter.  {}".format(ex))
+        return 1
+    except RuntimeError as ex:
+        print("Program failed due to a run time error.  {}".format(ex))
+        return 2
+
+if __name__ == "__main__":
+    sys.exit(main())
+
