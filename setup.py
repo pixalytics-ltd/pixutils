@@ -13,4 +13,5 @@ setup(name='pixutils',
       install_requires=[
           'cdsapi',
       ],
+      scripts=["pixutils/era_download.py"],
       zip_safe=False)
