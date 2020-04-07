@@ -135,8 +135,8 @@ def main() -> int:
     parser.add_argument("-o", "--out_file", nargs=1, help="Filename for the downloaded data.")
 
     args = parser.parse_args()
-    dates = [datetime.strptime(d, "%Y-%m-%d").date() for d in args.dates]
-    times = [datetime.strptime(t, "%H:%M").time() for t in args.times]
+    dates = [datetime.strptime(d, "%Y-%m-%d").date() for d in args.dates] if args.dates is not None else []
+    times = [datetime.strptime(t, "%H:%M").time() for t in args.times] if args.times is not None else []
     file_path = os.path.expanduser(args.out_file[0]) if args.out_file is not None else []
 
     if file_path is None:
