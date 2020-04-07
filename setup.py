@@ -13,5 +13,7 @@ setup(name='pixutils',
       install_requires=[
           'cdsapi',
       ],
+      #     some scripts can be run directly from the command line.  These will be copied to the 'bin' directory in the
+      #     target environment
       scripts=["pixutils/era_download.py"],
       zip_safe=False)
