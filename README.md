@@ -95,17 +95,11 @@ Use as a standalone application or as part of a larger program.
 
 ```bash
 usage: era_download.py [-h] [-d DATES [DATES ...]] [-t TIMES [TIMES ...]]
-                       [-v VARIABLES [VARIABLES ...]]
+                       [-o OUT_FILE]
+                       variables [variables ...]
 
-optional arguments:
-  -h, --help            show this help message and exit
-  -d DATES [DATES ...], --dates DATES [DATES ...]
-                        Date of the data set to be downloaded (format: YYYY-
-                        MM-DD)
-  -t TIMES [TIMES ...], --times TIMES [TIMES ...]
-                        Time of the data set to be downloaded (format: HH:MM)
-  -v VARIABLES [VARIABLES ...], --variables VARIABLES [VARIABLES ...]
-                        Specify one or more variables to be downloaded.
+positional arguments:
+  variables             Specify one or more variables to be downloaded.
                         Supported variables: [10m_u_component_of_wind,
                         10m_v_component_of_wind, skin_temperature,
                         soil_temperature_level_1, soil_temperature_level_2,
@@ -115,6 +109,16 @@ optional arguments:
                         volumetric_soil_water_layer_3,
                         volumetric_soil_water_layer_4, total_precipitation,
                         2m_temperature]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -d DATES [DATES ...], --dates DATES [DATES ...]
+                        Date of the data set to be downloaded (format: YYYY-
+                        MM-DD)
+  -t TIMES [TIMES ...], --times TIMES [TIMES ...]
+                        Time of the data set to be downloaded (format: HH:MM)
+  -o OUT_FILE, --out_file OUT_FILE
+                        Filename for the downloaded data.
 ```
 
 * Example:
