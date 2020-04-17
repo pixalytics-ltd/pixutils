@@ -99,13 +99,13 @@ def apply_mask(input_file_path: str,
     mask_file_path = Path(input_file_path).with_suffix(".mask.tif")
 
     #   create the mask file and check it exists
-    genValidMask(input_file_path, mask_file_path, data_format.format, no_data_value)
+    genValidMask(input_file_path, str(mask_file_path), data_format.format, no_data_value)
     if not os.path.isfile(mask_file_path):
         raise FileNotFoundError("Unable to find generated mask file: '{}'.".format(mask_file_path))
 
     #   apply the mask file
     maskImage(input_file_path,
-              mask_file_path,
+              str(mask_file_path),
               output_file_path,
               data_format.format,
               data_format.type,
