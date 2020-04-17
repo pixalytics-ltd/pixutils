@@ -1,8 +1,10 @@
 import os
+from pathlib import Path
 from collections import namedtuple
 from rsgislib.imagecalc import BandDefn
 from rsgislib import imageutils
 from rsgislib import imagecalc
+from rsgislib.imageutils import maskImage, genValidMask
 from rsgislib import TYPE_32FLOAT
 import gdal
 
@@ -77,6 +79,42 @@ def compress_geotiff(input_file_path: str, output_file_path: str) -> None:
     #   call gdal.Warp, which applies compression in the output file - will potentially throw a 'RuntimeError' if the
     #   file cannot be created
     _ = gdal.Warp(output_file_path, input_file_path, options=warp_options)
+
+    if not os.path.isfile(output_file_path):
+        raise FileNotFoundError("Unable to locate output file '{}'.".format(output_file_path))
+
+
+def apply_mask(input_file_path: str,
+               output_file_path: str,
+               data_format: DataFormat = DEFAULT_DATA_FORMAT) -> None:
+    if not os.path.isfile(input_file_path):
+        raise FileNotFoundError("Unable to find input file: '{}'.".format(input_file_path))
+
+    #   parameters used in generating and applying the mask
+    no_data_value = 1
+    out_value = -9999
+    mask_value = 0
+
+    #   temporary file used to hold the mask
+    mask_file_path = Path(input_file_path).with_suffix(".mask.tif")
+
+    #   create the mask file and check it exists
+    genValidMask(input_file_path, mask_file_path, data_format.format, no_data_value)
+    if not os.path.isfile(mask_file_path):
+        raise FileNotFoundError("Unable to find generated mask file: '{}'.".format(mask_file_path))
+
+    #   apply the mask file
+    maskImage(input_file_path,
+              mask_file_path,
+              output_file_path,
+              data_format.format,
+              data_format.type,
+              out_value,
+              mask_value)
+    imageutils.popImageStats(output_file_path, True, out_value, True)
+
+    #   remove the mask file
+    mask_file_path.unlink()
 
     if not os.path.isfile(output_file_path):
         raise FileNotFoundError("Unable to locate output file '{}'.".format(output_file_path))
