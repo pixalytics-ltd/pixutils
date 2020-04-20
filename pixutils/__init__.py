@@ -1,7 +1,7 @@
 from pixutils.ceres_download import *
 from pixutils.era_download import *
 from pixutils.raster_operations import *
-from pixutils.date_utils import last_day_of_prev_month, first_day_of_prev_month
+from pixutils.date_utils import last_day_of_prev_month, first_day_of_prev_month, date_iterator
 
 
 #   todo: split individual imports into better structured sub-modules.
@@ -17,4 +17,5 @@ __all__ = [
     #   dateutils
     "last_day_of_prev_month",
     "first_day_of_prev_month",
+    "date_iterator",
 ]
