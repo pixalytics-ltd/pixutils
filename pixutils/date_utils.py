@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Union, Iterable
 from datetime import datetime, date, timedelta
 
 
@@ -27,3 +27,16 @@ def last_day_of_prev_month(d: Union[str, date, datetime]) -> datetime:
 
     return d.replace(day=1) - timedelta(days=1)
 
+
+def date_iterator(start_date: Union[date, datetime], end_date: Union[date, datetime]) -> Iterable[date]:
+    """
+    Yields a list of dates as a daily series between the specified start and end date
+    :param start_date: the first date in the sequence
+    :param end_date: the last date in the sequence
+    :return: a datetime.date object
+    """
+    _date = start_date
+    while _date <= end_date:
+        yield _date
+        _date += timedelta(days=1)
+    return _date
