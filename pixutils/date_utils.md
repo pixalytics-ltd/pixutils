@@ -1,6 +1,6 @@
 # date_utils.py
 
-Various helped functions for working with dates.
+Various helper functions for working with dates.
 
 ## Usage
 

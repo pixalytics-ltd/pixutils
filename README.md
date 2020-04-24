@@ -53,7 +53,7 @@ Instructions for each module can be found in their respective readme files:
 * **date_conversion.py**:
  [converts between *year, month, day* and *year, day_of_year*](./pixutils/date_conversion.md)
 * **date_utils.py**:
- []()
+ [various helper functions for working with dates.](./pixutils/date_utils.md)
 * **era_download.py**: 
 [provides a wrapper around the `cdsapi` library for downloading data from Copernicus Climate Data Store.](./pixutils/era_download.md)
 * **nc_utils.py**:
@@ -61,4 +61,4 @@ Instructions for each module can be found in their respective readme files:
 * **raster_operations.py**:
  [apply operations to raster files](./pixutils/raster_operations.md)
 * **sentinel_filename.py**:
- []()
+ [utility functions to extract information from Sentinel satellite image files](./pixutils/sentinel_filename.md)
