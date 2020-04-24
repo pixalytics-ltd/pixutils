@@ -59,6 +59,6 @@ Instructions for each module can be found in their respective readme files:
 * **nc_utils.py**:
  []()
 * **raster_operations.py**:
- []()
+ [apply operations to raster files](./pixutils/raster_operations.md)
 * **sentinel_filename.py**:
  []()
