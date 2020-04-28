@@ -93,6 +93,7 @@ def apply_mask(input_file_path: str,
 
     #   parameters used in generating and applying the mask
     out_value = -9999
+    mask_value = 0
 
     #   temporary file used to hold the mask
     mask_file_path = Path(input_file_path).with_suffix(".mask.tif")
@@ -109,8 +110,8 @@ def apply_mask(input_file_path: str,
               data_format.format,
               data_format.type,
               out_value,
-              data_min)
-    imageutils.popImageStats(output_file_path, True, out_value, True)
+              mask_value)
+    imageutils.popImageStats(output_file_path, True, mask_value, True)
 
     #   remove the mask file
     mask_file_path.unlink()

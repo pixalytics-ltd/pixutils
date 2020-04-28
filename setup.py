@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(name='pixutils',
-      version='0.1.10',
+      version='0.1.11',
       description='Pixalytics python utilities package',
       url='http://github.com/pixalytics-ltd/pixutils',
       author='Pixalytics Ltd',
