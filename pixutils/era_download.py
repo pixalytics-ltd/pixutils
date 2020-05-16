@@ -7,8 +7,21 @@ import cdsapi
 from pathlib import Path
 from datetime import date, time, datetime
 from typing import List, Union
-from enum import Enum, unique, auto
+from enum import Enum, unique
 
+def auto_builder():
+    number = 0
+    def auto():
+        nonlocal number
+        number += 1
+        return number
+    return auto
+
+try:
+    from enum import auto
+except ImportError:
+    auto = auto_builder()
+del auto_builder
 
 #   data sources recognized by the download script.  Further fields can be supported by adding them to the 'Var' enum
 #   and the 'map_var_names' dictionary
