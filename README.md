@@ -62,3 +62,4 @@ Instructions for each module can be found in their respective readme files:
  [apply operations to raster files](./pixutils/raster_operations.md)
 * **sentinel_filename.py**:
  [utility functions to extract information from Sentinel satellite image files](./pixutils/sentinel_filename.md)
+ * **s2_retrieval.py**: [Retrieve and download Sentinel-2 imagery](./pixutils/s2_retrieval.md)
