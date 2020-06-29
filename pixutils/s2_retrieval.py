@@ -79,7 +79,7 @@ def params(args, ptype):
 
 
 # Core downloading function where all downloading is intialised from
-def s2_download(args, sdate, edate, zip_folder, dl_folder, verb, cloud_cover):
+def s2_download(args, sdate, edate, zip_folder, dl_folder, verb, cloud_cover, authentication_filename):
     if os.path.exists(zip_folder) is False:
         os.mkdir(zip_folder)
 
@@ -113,7 +113,7 @@ def s2_download(args, sdate, edate, zip_folder, dl_folder, verb, cloud_cover):
     # Here login details are parsed
     logger.info("Reading in login details")
 
-    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 's2dl.txt'), 'r') as f1:
+    with open(authentication_filename, 'r') as f1:
         first_line = f1.readline().rstrip("\n")
     credentials = first_line.split(",")
     logger.info("Login details retrieved")
@@ -240,6 +240,7 @@ def s2_download(args, sdate, edate, zip_folder, dl_folder, verb, cloud_cover):
 # This main function is intended to contain the command line initialisers
 # derived from argparse and any other needed input parameters
 def main():
+    head_tail = os.path.split(__file__)
     parser = argparse.ArgumentParser()
     parser.add_argument("sdate", help="Start Date")
     parser.add_argument("edate", help="End Date")
@@ -250,14 +251,17 @@ def main():
     parser.add_argument("-v", "--verbose", action="store_true", dest="verbose", default=False)
     parser.add_argument("-c", "--cloud", dest="cloud", nargs=2, default=['0', '100'],
                         help="Range of percentage cloud cover allowed")
+    parser.add_argument("-a", dest="auth", default=(os.path.join(head_tail[0], "s2dl.txt")),
+                        help="Filename containing copernicus login information")
     args = parser.parse_args()
+    print("/n {}".format(head_tail))
 
     print(args)
     # Code initalisation goes here alongside error catching
 
     try:
         print(args)
-        s2_download(args, args.sdate, args.edate, args.zip_folder, args.dl_folder, args.verbose, args.cloud)
+        s2_download(args, args.sdate, args.edate, args.zip_folder, args.dl_folder, args.verbose, args.cloud, args.auth)
     except Exception as e:
         logger.error("Crash occurred running s2_retrieval.py: {}".format(e))
         traceback.print_exc()
