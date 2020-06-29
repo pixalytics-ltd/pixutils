@@ -153,7 +153,7 @@ def s2_download(args, sdate, edate, zip_folder, dl_folder, verb, cloud_cover):
         try:
             info = api.get_product_odata(key)
         except Exception as e:
-            logger.warning("key {} failed,skipping to next key. {}".format(e))
+            logger.warning("key {} failed,skipping to next key. {}".format(key, e))
             traceback.print_exc()
             continue
 
