@@ -135,6 +135,7 @@ def s2_download(args, sdate, edate, zip_folder, dl_folder, verb, cloud_cover):
                          date=(sdate, edate),
                          platformname='Sentinel-2',
                          producttype="S2MSI1C",
+                         cloudcoverpercentage=(float(cloud_cover[0]), float(cloud_cover[1]))
                          )
     logger.info("Query complete")
 
@@ -247,7 +248,7 @@ def main():
     parser.add_argument("tiles", help="Filename of tiles csv")
     parser.add_argument("footprint", help="Filename of footprint geojson")
     parser.add_argument("-v", "--verbose", action="store_true", dest="verbose", default=False)
-    parser.add_argument("-c", "--cloud", dest="cloud", nargs=2, default="0 70",
+    parser.add_argument("-c", "--cloud", dest="cloud", nargs=2, default=['0', '100'],
                         help="Range of percentage cloud cover allowed")
     args = parser.parse_args()
 
