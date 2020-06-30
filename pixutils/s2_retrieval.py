@@ -33,7 +33,7 @@ Created on Wed Sep 26 13:54:54 2018
 # zipfolder - Folder where Sentinel-2 files stored as zip files are downloaded to
 # dlfolder - Folder path where extracted Sentinel-2 files are stored by folder
 # tiles - Filename of tiles csv
-# footprint - Filename of footprint geojson
+# geo_path - Filename of footprint geojson
 # -v (Verbose) - Enables a more verbose output
 # -c (Cloud Cover) - Sets cloud cover range for query
 ##############################################################################
@@ -78,8 +78,22 @@ def params(args, ptype):
         return stime_epoch.time(), etime_epoch.time()
 
 
+def get_tiles(tile_filename):
+    s2_tiles = pd.read_csv(tile_filename)
+    print(s2_tiles['Scenes'])
+    tiles_src = s2_tiles['Scenes'].values.tolist()
+    tiles = list(set([a.split("A")[1] for a in tiles_src]))
+    return tiles
+
+
+def get_time_epochs():
+    stime_epoch = datetime.datetime(1900, 1, 1, 6, 30, 0)
+    etime_epoch = datetime.datetime(1900, 1, 1, 19, 30, 0)
+    return stime_epoch.time(), etime_epoch.time()
+
+
 # Core downloading function where all downloading is intialised from
-def s2_download(args, sdate, edate, zip_folder, dl_folder, verb, cloud_cover, authentication_filename):
+def s2_download(sdate, edate, zip_folder, dl_folder, verb, cloud_cover, authentication_filename, tile_filename, geo_path):
     if os.path.exists(zip_folder) is False:
         os.mkdir(zip_folder)
 
@@ -91,7 +105,7 @@ def s2_download(args, sdate, edate, zip_folder, dl_folder, verb, cloud_cover, au
     # to the end date to allow for succesful requests to the server api, this
     # is also set up alongside variables for program use
     logger.info("Setting up variables")
-    tiles = params(args, 1)
+    tiles = get_tiles(tile_filename)
     edate_dt = datetime.datetime(int(edate[0:4]), int(edate[4:6]), int(edate[6:8]))
     edate_dt = edate_dt + datetime.timedelta(hours=24)
     if edate_dt.month < 10:
@@ -106,8 +120,10 @@ def s2_download(args, sdate, edate, zip_folder, dl_folder, verb, cloud_cover, au
 
     fs2files = []
     ids = []    # list of ids of sentinel-2 files
-    geo_path = params(args, 0)  # geojson of area to query for
-    stime_epoch, etime_epoch = params(args, 2)
+
+    # Time epochs for searches
+    stime_epoch, etime_epoch = get_time_epochs()
+
     logger.info("Parameters set up")
 
     # Here login details are parsed
@@ -188,7 +204,7 @@ def s2_download(args, sdate, edate, zip_folder, dl_folder, verb, cloud_cover, au
     logger.info("Number of files to download is {}".format(len(ids)))
     if len(ids) == 0:
         if already_downloaded == 0:
-            logger.warning("No files were found which covered the Colombian tiles of interest")
+            logger.warning("No files were found which covered the tiles of interest")
             return
         else:
             logger.info("Files already downloaded")
@@ -247,7 +263,7 @@ def main():
     parser.add_argument("zip_folder", help="Start Date")
     parser.add_argument("dl_folder", help="Start Date")
     parser.add_argument("tiles", help="Filename of tiles csv")
-    parser.add_argument("footprint", help="Filename of footprint geojson")
+    parser.add_argument("geo_path", help="Filename of footprint geojson")
     parser.add_argument("-v", "--verbose", action="store_true", dest="verbose", default=False)
     parser.add_argument("-c", "--cloud", dest="cloud", nargs=2, default=['0', '100'],
                         help="Range of percentage cloud cover allowed")
@@ -256,12 +272,11 @@ def main():
     args = parser.parse_args()
     print("/n {}".format(head_tail))
 
-    print(args)
     # Code initalisation goes here alongside error catching
 
     try:
-        print(args)
-        s2_download(args, args.sdate, args.edate, args.zip_folder, args.dl_folder, args.verbose, args.cloud, args.auth)
+        s2_download(args.sdate, args.edate, args.zip_folder, args.dl_folder, args.verbose, args.cloud, args.auth,
+                    args.tiles, args.geo_path)
     except Exception as e:
         logger.error("Crash occurred running s2_retrieval.py: {}".format(e))
         traceback.print_exc()
