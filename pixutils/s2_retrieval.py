@@ -61,21 +61,21 @@ logger = logging.getLogger(__name__)
 
 # params function is used to store hard coded variables
 # class objects can also be used in place of or in addition to this depending on program
-def params(args, ptype):
-    if ptype == 0:  # Path to world geojson located in home directory
-        # dir, program = os.path.split(__file__)
-        path = args.footprint
-        return path
-    elif ptype == 1:  # Allowed tile numbers numbers
-        s2_tiles = pd.read_csv(args.tiles)
-        print(s2_tiles['Scenes'])
-        tiles_src = s2_tiles['Scenes'].values.tolist()
-        tiles = list(set([a.split("A")[1] for a in tiles_src]))
-        return tiles
-    elif ptype == 2:  # Time epochs for searches
-        stime_epoch = datetime.datetime(1900, 1, 1, 6, 30, 0)
-        etime_epoch = datetime.datetime(1900, 1, 1, 19, 30, 0)
-        return stime_epoch.time(), etime_epoch.time()
+# def params(args, ptype):
+#     if ptype == 0:  # Path to world geojson located in home directory
+#         # dir, program = os.path.split(__file__)
+#         path = args.footprint
+#         return path
+#     elif ptype == 1:  # Allowed tile numbers numbers
+#         s2_tiles = pd.read_csv(args.tiles)
+#         print(s2_tiles['Scenes'])
+#         tiles_src = s2_tiles['Scenes'].values.tolist()
+#         tiles = list(set([a.split("A")[1] for a in tiles_src]))
+#         return tiles
+#     elif ptype == 2:  # Time epochs for searches
+#         stime_epoch = datetime.datetime(1900, 1, 1, 6, 30, 0)
+#         etime_epoch = datetime.datetime(1900, 1, 1, 19, 30, 0)
+#         return stime_epoch.time(), etime_epoch.time()
 
 
 def get_tiles(tile_filename):
@@ -93,7 +93,8 @@ def get_time_epochs():
 
 
 # Core downloading function where all downloading is intialised from
-def s2_download(sdate, edate, zip_folder, dl_folder, verb, cloud_cover, authentication_filename, tile_filename, geo_path):
+def s2_download(sdate, edate, zip_folder, dl_folder, cloud_cover, authentication_filename, tile_filename, geo_path, product):
+
     if os.path.exists(zip_folder) is False:
         os.mkdir(zip_folder)
 
@@ -150,7 +151,7 @@ def s2_download(sdate, edate, zip_folder, dl_folder, verb, cloud_cover, authenti
     products = api.query(footprint,
                          date=(sdate, edate),
                          platformname='Sentinel-2',
-                         producttype="S2MSI1C",
+                         producttype=product,
                          cloudcoverpercentage=(float(cloud_cover[0]), float(cloud_cover[1]))
                          )
     logger.info("Query complete")
@@ -269,14 +270,20 @@ def main():
                         help="Range of percentage cloud cover allowed")
     parser.add_argument("-a", dest="auth", default=(os.path.join(head_tail[0], "s2dl.txt")),
                         help="Filename containing copernicus login information")
+    parser.add_argument("-p", "--product", dest="product", default="1C", help="product type: S2MSI[1C][2A][Ap]")
     args = parser.parse_args()
     print("/n {}".format(head_tail))
 
     # Code initalisation goes here alongside error catching
 
+    if args.product == "1C" or args.product == "2A" or args.product == "Ap":
+        product = "S2MSI" + args.product
+    else:
+        raise Exception("Invalid product type.")
+
     try:
-        s2_download(args.sdate, args.edate, args.zip_folder, args.dl_folder, args.verbose, args.cloud, args.auth,
-                    args.tiles, args.geo_path)
+        s2_download(args.sdate, args.edate, args.zip_folder, args.dl_folder, args.cloud, args.auth, args.tiles,
+                    args.geo_path, args.product)
     except Exception as e:
         logger.error("Crash occurred running s2_retrieval.py: {}".format(e))
         traceback.print_exc()
