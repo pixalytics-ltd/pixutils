@@ -79,10 +79,13 @@ logger = logging.getLogger(__name__)
 
 
 def get_tiles(tile_filename):
-    s2_tiles = pd.read_csv(tile_filename)
-    print(s2_tiles['Scenes'])
-    tiles_src = s2_tiles['Scenes'].values.tolist()
-    tiles = list(set([a.split("A")[1] for a in tiles_src]))
+    try:
+        s2_tiles = pd.read_csv(tile_filename)
+        print(s2_tiles['Scenes'])
+        tiles_src = s2_tiles['Scenes'].values.tolist()
+        tiles = list(set([a.split("A")[1] for a in tiles_src]))
+    except Exception as e:
+        print("Error: unable to read tiles csv. {}".format(e))
     return tiles
 
 
