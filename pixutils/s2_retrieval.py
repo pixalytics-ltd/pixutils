@@ -97,6 +97,7 @@ def get_time_epochs():
 
 # Core downloading function where all downloading is intialised from
 def s2_download(sdate, edate, zip_folder, dl_folder, cloud_cover, authentication_filename, tile_filename, geo_path, product):
+    print("tile_filename: {}".format(tile_filename))
 
     if os.path.exists(zip_folder) is False:
         os.mkdir(zip_folder)
@@ -223,8 +224,8 @@ def s2_download(sdate, edate, zip_folder, dl_folder, cloud_cover, authentication
         count += 1
         try:
             api.download(id, directory_path=zip_folder)
-        except:
-            logger.warning("Download failed for {}".format(fs2files[count]))
+        except Exception as e:
+            logger.warning("Download failed for {}. {}".format(fs2files[count], e))
             traceback.print_exc()
 
     logger.info("All available data downloaded")
@@ -286,7 +287,7 @@ def main():
 
     try:
         s2_download(args.sdate, args.edate, args.zip_folder, args.dl_folder, args.cloud, args.auth, args.tiles,
-                    args.geo_path, args.product)
+                    args.geo_path, product)
     except Exception as e:
         logger.error("Crash occurred running s2_retrieval.py: {}".format(e))
         traceback.print_exc()
