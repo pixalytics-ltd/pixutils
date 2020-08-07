@@ -79,11 +79,11 @@ logger = logging.getLogger(__name__)
 
 
 def get_tiles(tile_filename):
+    print("\nTILE FILENAME: {}".format(tile_filename))
     try:
-        print("\nTILE FILENAME: {}".format(tile_filename))
         s2_tiles = pd.read_csv(tile_filename)
-        print(s2_tiles['Scenes'])
         tiles_src = s2_tiles['Scenes'].values.tolist()
+        print(tiles_src)
         tiles = list(set([a.split("A")[1] for a in tiles_src]))
     except Exception as e:
         print("Error: unable to read tiles csv. {}".format(e))
@@ -100,7 +100,7 @@ def get_time_epochs():
 def s2_download(sdate, edate, zip_folder, dl_folder, cloud_cover, authentication_filename, tile_filename, geo_path, product):
     print("tile_filename: {}".format(tile_filename))
 
-    if os.path.exists(zip_folder) is False:
+    if not os.path.exists(zip_folder):
         os.mkdir(zip_folder)
 
     logger.info("Sentinel-2 dowloading code initialised")
@@ -111,6 +111,7 @@ def s2_download(sdate, edate, zip_folder, dl_folder, cloud_cover, authentication
     # to the end date to allow for succesful requests to the server api, this
     # is also set up alongside variables for program use
     logger.info("Setting up variables")
+    print("Getting tiles for {}....".format(tile_filename))
     tiles = get_tiles(tile_filename)
     edate_dt = datetime.datetime(int(edate[0:4]), int(edate[4:6]), int(edate[6:8]))
     edate_dt = edate_dt + datetime.timedelta(hours=24)
