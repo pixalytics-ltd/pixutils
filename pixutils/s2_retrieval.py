@@ -99,6 +99,7 @@ def get_time_epochs():
 # Core downloading function where all downloading is intialised from
 def s2_download(sdate, edate, zip_folder, dl_folder, cloud_cover, authentication_filename, tile_filename, geo_path, product):
     print("tile_filename: {}".format(tile_filename))
+    print("?????")
 
     if not os.path.exists(zip_folder):
         os.mkdir(zip_folder)
