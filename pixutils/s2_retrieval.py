@@ -72,10 +72,10 @@ def get_tiles(tile_filename):
     return tiles
 
 
-def get_time_epochs():
-    stime_epoch = datetime.datetime(1900, 1, 1, 6, 30, 0)
-    etime_epoch = datetime.datetime(1900, 1, 1, 19, 30, 0)
-    return stime_epoch.time(), etime_epoch.time()
+# def get_time_epochs():
+#     stime_epoch = datetime.datetime(1900, 1, 1, 6, 30, 0)
+#     etime_epoch = datetime.datetime(1900, 1, 1, 19, 30, 0)
+#     return stime_epoch.time(), etime_epoch.time()
 
 
 # Core downloading function where all downloading is intialised from
@@ -110,7 +110,7 @@ def s2_download(sdate, edate, zip_folder, dl_folder, cloud_cover, authentication
     ids = []    # list of ids of sentinel-2 files
 
     # Time epochs for searches
-    stime_epoch, etime_epoch = get_time_epochs()
+    # stime_epoch, etime_epoch = get_time_epochs()
 
     logger.info("Parameters set up")
 
@@ -179,14 +179,19 @@ def s2_download(sdate, edate, zip_folder, dl_folder, cloud_cover, authentication
         # only if they don't exist in the zip or final folders
         aclogfile = os.path.join(dl_folder, filestem + "-acfail.txt")
         safefile = os.path.join(dl_folder, filestem + ".SAFE")
-        if tile_number in tiles and dt_1.time() >= stime_epoch:  # and dt_2.time() <= etime_epoch:
+        if tile_number in tiles: #and dt_1.time() >= stime_epoch:  # and dt_2.time() <= etime_epoch:
+            print("Correct tile. Checking if exists in {}".format(zip_folder))
             check = glob.glob(os.path.join(zip_folder, filestem))
             if len(check) == 0 and not os.path.exists(safefile) and not os.path.exists(aclogfile):
+                print("Needs downloaded")
                 ids.append(key)
                 fs2files.append(info['title'])
             else:
+                print("Already downloaded")
                 s2files.append(os.path.join(dl_folder, filestem + ".SAFE"))
                 already_downloaded = 1
+        else:
+            print("NOT CORRECT TILE")
 
     logger.info("Metadata filtering complete")
 
