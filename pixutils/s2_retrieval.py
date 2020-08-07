@@ -72,10 +72,10 @@ def get_tiles(tile_filename):
     return tiles
 
 
-# def get_time_epochs():
-#     stime_epoch = datetime.datetime(1900, 1, 1, 6, 30, 0)
-#     etime_epoch = datetime.datetime(1900, 1, 1, 19, 30, 0)
-#     return stime_epoch.time(), etime_epoch.time()
+def get_time_epochs():
+    stime_epoch = datetime.datetime(1900, 1, 1, 6, 30, 0)
+    etime_epoch = datetime.datetime(1900, 1, 1, 19, 30, 0)
+    return stime_epoch.time(), etime_epoch.time()
 
 
 # Core downloading function where all downloading is intialised from
@@ -110,7 +110,7 @@ def s2_download(sdate, edate, zip_folder, dl_folder, cloud_cover, authentication
     ids = []    # list of ids of sentinel-2 files
 
     # Time epochs for searches
-    # stime_epoch, etime_epoch = get_time_epochs()
+    stime_epoch, etime_epoch = get_time_epochs()
 
     logger.info("Parameters set up")
 
