@@ -85,8 +85,10 @@ def get_tiles(tile_filename):
         tiles_src = s2_tiles['Scenes'].values.tolist()
         print(tiles_src)
         tiles = list(set([a.split("A")[1] for a in tiles_src]))
+        print(tiles)
     except Exception as e:
         print("Error: unable to read tiles csv. {}".format(e))
+
     return tiles
 
 
@@ -153,6 +155,7 @@ def s2_download(sdate, edate, zip_folder, dl_folder, cloud_cover, authentication
     # Here a footprint is set up to pass along to the search query
     footprint = sla.geojson_to_wkt(sla.read_geojson(geo_path))
 
+    print(sdate, edate, footprint)
     # Here the search query is started and a large dictionary is returned
     logger.info("Starting query")
     products = api.query(footprint,
@@ -161,6 +164,7 @@ def s2_download(sdate, edate, zip_folder, dl_folder, cloud_cover, authentication
                          producttype=product,
                          cloudcoverpercentage=(float(cloud_cover[0]), float(cloud_cover[1]))
                          )
+    print(len(products))
     logger.info("Query complete")
 
     # Information on the query is returned here
