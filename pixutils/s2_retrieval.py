@@ -182,12 +182,13 @@ def s2_download(sdate, edate, zip_folder, dl_folder, cloud_cover, authentication
         if tile_number in tiles: #and dt_1.time() >= stime_epoch:  # and dt_2.time() <= etime_epoch:
             print("Correct tile. Checking if exists in {}".format(zip_folder))
             check = glob.glob(os.path.join(zip_folder, filestem))
+            print(tile_number)
             if len(check) == 0 and not os.path.exists(safefile) and not os.path.exists(aclogfile):
                 print("Needs downloaded")
                 ids.append(key)
                 fs2files.append(info['title'])
             else:
-                print("Already downloaded")
+                print("Already downloaded {}".format(check))
                 s2files.append(os.path.join(dl_folder, filestem + ".SAFE"))
                 already_downloaded = 1
         else:
