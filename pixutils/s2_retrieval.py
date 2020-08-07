@@ -13,7 +13,7 @@ Created on Wed Sep 26 13:54:54 2018
 
 @author: ubuntu
 """
-# This code enables the downloading of Sentinel-2 data which covers specific comlombian tiles
+# This code enables the downloading of Sentinel-2 data which covers specific tiles
 # in a given date range and only downloads morning data. This is achieved with
 # the sentinel sat library located at https://pypi.org/project/sentinelsat/
 #
@@ -78,7 +78,7 @@ def get_time_epochs():
 
 
 # Core downloading function where all downloading is intialised from
-def s2_download(sdate, edate, zip_folder, dl_folder, cloud_cover, authentication_filename, tile_filename, geo_path, product):
+def s2_download(sdate, edate, zip_folder, dl_folder, cloud_cover, authentication_filename, tile_filename, geo_path, product, logger):
     logger.info("tile_filename: {}".format(tile_filename))
 
     if not os.path.exists(zip_folder):
@@ -133,7 +133,6 @@ def s2_download(sdate, edate, zip_folder, dl_folder, cloud_cover, authentication
     footprint = sla.geojson_to_wkt(sla.read_geojson(geo_path))
 
     # Here the search query is started and a large dictionary is returned
-    logger.info("Starting query")
     products = api.query(footprint,
                          date=(sdate, edate),
                          platformname='Sentinel-2',
@@ -154,6 +153,7 @@ def s2_download(sdate, edate, zip_folder, dl_folder, cloud_cover, authentication
     logger.info("Starting metadata filtering loops")
     already_downloaded = 0
     s2files = []
+    safe_dirs = []
     for key in products:
         try:
             info = api.get_product_odata(key)
@@ -179,7 +179,7 @@ def s2_download(sdate, edate, zip_folder, dl_folder, cloud_cover, authentication
         safefile = os.path.join(dl_folder, filestem + ".SAFE")
         if tile_number in tiles and dt_1.time() >= stime_epoch:  # and dt_2.time() <= etime_epoch:
             check = glob.glob(os.path.join(zip_folder, filestem))
-            if len(check) == 0 and not os.path.exists(safefile) and not os.path.exists(aclogfile):
+            if len(check) == 0: #and not os.path.exists(safefile) and not os.path.exists(aclogfile):
                 ids.append(key)
                 fs2files.append(info['title'])
             else:
@@ -233,6 +233,7 @@ def s2_download(sdate, edate, zip_folder, dl_folder, cloud_cover, authentication
 
     # Here the final cleanup is done
     logger.info("Sentinel-2 data download program completed for duration of {} to {}".format(sdate, edate))
+    # If downloaded at least 1 file return downloaded list
     if count > (-1):
         return s2files
     else:
@@ -269,7 +270,7 @@ def main():
 
     try:
         s2_download(args.sdate, args.edate, args.zip_folder, args.dl_folder, args.cloud, args.auth, args.tiles,
-                    args.geo_path, product)
+                    args.geo_path, product, logger)
     except Exception as e:
         logger.error("Crash occurred running s2_retrieval.py: {}".format(e))
         traceback.print_exc()

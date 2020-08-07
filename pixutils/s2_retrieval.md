@@ -39,6 +39,6 @@ python s2_retrieval.py 20200617 20200617 /home/user/output/s2_zipped /home/user/
 # Import
 from pixutils.s2_retrieval import *
 
-s2_download(sdate, edate, zip_folder, dl_folder, cloud_cover, authentication_filename, tile_filename, geo_path, product)
+s2_download(sdate, edate, zip_folder, dl_folder, cloud_cover, authentication_filename, tile_filename, geo_path, product, logger)
 ```
 
