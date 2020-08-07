@@ -156,6 +156,7 @@ def s2_download(sdate, edate, zip_folder, dl_folder, cloud_cover, authentication
     logger.info("Starting metadata filtering loops")
     already_downloaded = 0
     s2files = []
+    safe_dirs = []
     for key in products:
         try:
             info = api.get_product_odata(key)
@@ -183,8 +184,7 @@ def s2_download(sdate, edate, zip_folder, dl_folder, cloud_cover, authentication
         if tile_number in tiles and dt_1.time() >= stime_epoch:  # and dt_2.time() <= etime_epoch:
             print("Correct tile. Checking if exists in {}".format(zip_folder))
             check = glob.glob(os.path.join(zip_folder, filestem))
-            if len(check) == 0: #and not os.path.exists(safefile) and not os.path.exists(aclogfile):
-                print("Needs downloaded")
+            if len(check) == 0:
                 ids.append(key)
                 fs2files.append(info['title'])
             else:
@@ -241,6 +241,7 @@ def s2_download(sdate, edate, zip_folder, dl_folder, cloud_cover, authentication
 
     # Here the final cleanup is done
     logger.info("Sentinel-2 data download program completed for duration of {} to {}".format(sdate, edate))
+    # If downloaded at least 1 file return downloaded list
     if count > (-1):
         return s2files
     else:
