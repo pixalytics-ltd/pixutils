@@ -58,12 +58,14 @@ from dfms_sharedutils import eo_utilities as eou
 # logger = config_logger.configure_logging(__name__)
 logger = logging.getLogger(__name__)
 
+
 def get_tiles(tile_filename):
     try:
         s2_tiles = pd.read_csv(tile_filename)
         tiles_src = s2_tiles['Scenes'].values.tolist()
         print(tiles_src)
         tiles = list(set([a.split("A")[1] for a in tiles_src]))
+        print(tiles)
     except Exception as e:
         print("Error: unable to read tiles csv. {}".format(e))
 
@@ -77,7 +79,7 @@ def get_time_epochs():
 
 
 # Core downloading function where all downloading is intialised from
-def s2_download(sdate, edate, zip_folder, dl_folder, cloud_cover, authentication_filename, tile_filename, geo_path, product):
+def s2_download(sdate, edate, zip_folder, dl_folder, cloud_cover, authentication_filename, tile_filename, geo_path, product, logger):
     logger.info("tile_filename: {}".format(tile_filename))
 
     if not os.path.exists(zip_folder):
@@ -132,7 +134,8 @@ def s2_download(sdate, edate, zip_folder, dl_folder, cloud_cover, authentication
     footprint = sla.geojson_to_wkt(sla.read_geojson(geo_path))
 
     # Here the search query is started and a large dictionary is returned
-    print("Starting query. footprint: \n{},\n date: {} {}, product: {}, cloud coverage: {}-{}%".format(footprint, sdate, edate, product, float(cloud_cover[0]), float(cloud_cover[1])))
+    print("Starting query. footprint: \n{},\n date: {} {}, product: {}, "
+          "cloud coverage: {}-{}%".format(footprint, sdate, edate, product, float(cloud_cover[0]), float(cloud_cover[1])))
     products = api.query(footprint,
                          date=(sdate, edate),
                          platformname='Sentinel-2',
@@ -140,7 +143,7 @@ def s2_download(sdate, edate, zip_folder, dl_folder, cloud_cover, authentication
                          cloudcoverpercentage=(float(cloud_cover[0]), float(cloud_cover[1]))
                          )
 
-    logger.info("Query complete. {} products found".format(len(products)))
+    print("Query complete. {} products found".format(len(products)))
 
     # Information on the query is returned here
     if len(products) == 0:
@@ -268,7 +271,7 @@ def main():
 
     try:
         s2_download(args.sdate, args.edate, args.zip_folder, args.dl_folder, args.cloud, args.auth, args.tiles,
-                    args.geo_path, product)
+                    args.geo_path, product, logger)
     except Exception as e:
         logger.error("Crash occurred running s2_retrieval.py: {}".format(e))
         traceback.print_exc()
