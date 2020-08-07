@@ -80,6 +80,7 @@ logger = logging.getLogger(__name__)
 
 def get_tiles(tile_filename):
     try:
+        print("\nTILE FILENAME: {}".format(tile_filename))
         s2_tiles = pd.read_csv(tile_filename)
         print(s2_tiles['Scenes'])
         tiles_src = s2_tiles['Scenes'].values.tolist()
