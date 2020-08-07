@@ -132,7 +132,7 @@ def s2_download(sdate, edate, zip_folder, dl_folder, cloud_cover, authentication
     footprint = sla.geojson_to_wkt(sla.read_geojson(geo_path))
 
     # Here the search query is started and a large dictionary is returned
-    logger.info("Starting query")
+    logger.info("Starting query. footprint: \n{},\n date: {} {}, product: {}, cloud coverage: {}-{}%".format(footprint, sdate, edate, product, float(cloud_cover[0]), float(cloud_cover[1])))
     products = api.query(footprint,
                          date=(sdate, edate),
                          platformname='Sentinel-2',
