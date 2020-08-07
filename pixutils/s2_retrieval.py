@@ -179,11 +179,11 @@ def s2_download(sdate, edate, zip_folder, dl_folder, cloud_cover, authentication
         # only if they don't exist in the zip or final folders
         aclogfile = os.path.join(dl_folder, filestem + "-acfail.txt")
         safefile = os.path.join(dl_folder, filestem + ".SAFE")
-        if tile_number in tiles: #and dt_1.time() >= stime_epoch:  # and dt_2.time() <= etime_epoch:
+        print(tile_number, filestem)
+        if tile_number in tiles and dt_1.time() >= stime_epoch:  # and dt_2.time() <= etime_epoch:
             print("Correct tile. Checking if exists in {}".format(zip_folder))
             check = glob.glob(os.path.join(zip_folder, filestem))
-            print(tile_number)
-            if len(check) == 0 and not os.path.exists(safefile) and not os.path.exists(aclogfile):
+            if len(check) == 0: #and not os.path.exists(safefile) and not os.path.exists(aclogfile):
                 print("Needs downloaded")
                 ids.append(key)
                 fs2files.append(info['title'])
