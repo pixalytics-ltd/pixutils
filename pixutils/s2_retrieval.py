@@ -13,7 +13,7 @@ Created on Wed Sep 26 13:54:54 2018
 
 @author: ubuntu
 """
-# This code enables the downloading of Sentinel-2 data which covers specific comlombian tiles
+# This code enables the downloading of Sentinel-2 data which covers specific tiles
 # in a given date range and only downloads morning data. This is achieved with
 # the sentinel sat library located at https://pypi.org/project/sentinelsat/
 #
@@ -63,9 +63,7 @@ def get_tiles(tile_filename):
     try:
         s2_tiles = pd.read_csv(tile_filename)
         tiles_src = s2_tiles['Scenes'].values.tolist()
-        print(tiles_src)
         tiles = list(set([a.split("A")[1] for a in tiles_src]))
-        print(tiles)
     except Exception as e:
         print("Error: unable to read tiles csv. {}".format(e))
 
@@ -134,8 +132,6 @@ def s2_download(sdate, edate, zip_folder, dl_folder, cloud_cover, authentication
     footprint = sla.geojson_to_wkt(sla.read_geojson(geo_path))
 
     # Here the search query is started and a large dictionary is returned
-    print("Starting query. footprint: \n{},\n date: {} {}, product: {}, "
-          "cloud coverage: {}-{}%".format(footprint, sdate, edate, product, float(cloud_cover[0]), float(cloud_cover[1])))
     products = api.query(footprint,
                          date=(sdate, edate),
                          platformname='Sentinel-2',
@@ -143,7 +139,7 @@ def s2_download(sdate, edate, zip_folder, dl_folder, cloud_cover, authentication
                          cloudcoverpercentage=(float(cloud_cover[0]), float(cloud_cover[1]))
                          )
 
-    print("Query complete. {} products found".format(len(products)))
+    logger.info("Query complete. {} products found".format(len(products)))
 
     # Information on the query is returned here
     if len(products) == 0:
@@ -180,19 +176,14 @@ def s2_download(sdate, edate, zip_folder, dl_folder, cloud_cover, authentication
         # only if they don't exist in the zip or final folders
         aclogfile = os.path.join(dl_folder, filestem + "-acfail.txt")
         safefile = os.path.join(dl_folder, filestem + ".SAFE")
-        print(tile_number, filestem)
         if tile_number in tiles and dt_1.time() >= stime_epoch:  # and dt_2.time() <= etime_epoch:
-            print("Correct tile. Checking if exists in {}".format(zip_folder))
             check = glob.glob(os.path.join(zip_folder, filestem))
-            if len(check) == 0:
+            if len(check) == 0: #and not os.path.exists(safefile) and not os.path.exists(aclogfile):
                 ids.append(key)
                 fs2files.append(info['title'])
             else:
-                print("Already downloaded {}".format(check))
                 s2files.append(os.path.join(dl_folder, filestem + ".SAFE"))
                 already_downloaded = 1
-        else:
-            print("NOT CORRECT TILE")
 
     logger.info("Metadata filtering complete")
 
