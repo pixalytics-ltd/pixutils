@@ -58,34 +58,12 @@ from dfms_sharedutils import eo_utilities as eou
 # logger = config_logger.configure_logging(__name__)
 logger = logging.getLogger(__name__)
 
-
-# params function is used to store hard coded variables
-# class objects can also be used in place of or in addition to this depending on program
-# def params(args, ptype):
-#     if ptype == 0:  # Path to world geojson located in home directory
-#         # dir, program = os.path.split(__file__)
-#         path = args.footprint
-#         return path
-#     elif ptype == 1:  # Allowed tile numbers numbers
-#         s2_tiles = pd.read_csv(args.tiles)
-#         print(s2_tiles['Scenes'])
-#         tiles_src = s2_tiles['Scenes'].values.tolist()
-#         tiles = list(set([a.split("A")[1] for a in tiles_src]))
-#         return tiles
-#     elif ptype == 2:  # Time epochs for searches
-#         stime_epoch = datetime.datetime(1900, 1, 1, 6, 30, 0)
-#         etime_epoch = datetime.datetime(1900, 1, 1, 19, 30, 0)
-#         return stime_epoch.time(), etime_epoch.time()
-
-
 def get_tiles(tile_filename):
-    print("\nTILE FILENAME: {}".format(tile_filename))
     try:
         s2_tiles = pd.read_csv(tile_filename)
         tiles_src = s2_tiles['Scenes'].values.tolist()
         print(tiles_src)
         tiles = list(set([a.split("A")[1] for a in tiles_src]))
-        print(tiles)
     except Exception as e:
         print("Error: unable to read tiles csv. {}".format(e))
 
@@ -100,8 +78,7 @@ def get_time_epochs():
 
 # Core downloading function where all downloading is intialised from
 def s2_download(sdate, edate, zip_folder, dl_folder, cloud_cover, authentication_filename, tile_filename, geo_path, product):
-    print("tile_filename: {}".format(tile_filename))
-    print("?????")
+    logger.info("tile_filename: {}".format(tile_filename))
 
     if not os.path.exists(zip_folder):
         os.mkdir(zip_folder)
@@ -114,7 +91,6 @@ def s2_download(sdate, edate, zip_folder, dl_folder, cloud_cover, authentication
     # to the end date to allow for succesful requests to the server api, this
     # is also set up alongside variables for program use
     logger.info("Setting up variables")
-    print("Getting tiles for {}....".format(tile_filename))
     tiles = get_tiles(tile_filename)
     edate_dt = datetime.datetime(int(edate[0:4]), int(edate[4:6]), int(edate[6:8]))
     edate_dt = edate_dt + datetime.timedelta(hours=24)
@@ -155,7 +131,6 @@ def s2_download(sdate, edate, zip_folder, dl_folder, cloud_cover, authentication
     # Here a footprint is set up to pass along to the search query
     footprint = sla.geojson_to_wkt(sla.read_geojson(geo_path))
 
-    print(sdate, edate, footprint)
     # Here the search query is started and a large dictionary is returned
     logger.info("Starting query")
     products = api.query(footprint,
@@ -164,8 +139,8 @@ def s2_download(sdate, edate, zip_folder, dl_folder, cloud_cover, authentication
                          producttype=product,
                          cloudcoverpercentage=(float(cloud_cover[0]), float(cloud_cover[1]))
                          )
-    print(len(products))
-    logger.info("Query complete")
+
+    logger.info("Query complete. {} products found".format(len(products)))
 
     # Information on the query is returned here
     if len(products) == 0:
@@ -283,7 +258,6 @@ def main():
                         help="Filename containing copernicus login information")
     parser.add_argument("-p", "--product", dest="product", default="1C", help="product type: S2MSI[1C][2A][Ap]")
     args = parser.parse_args()
-    print("/n {}".format(head_tail))
 
     # Code initalisation goes here alongside error catching
 
