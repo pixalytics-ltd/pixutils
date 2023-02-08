@@ -57,12 +57,14 @@ ext_to_file_type = {
 def download_era5_reanalysis_data(variables: Union[Var, List[Var], List[str]],
                                   dates: Union[date, List[date]],
                                   times: Union[time, List[time]],
+                                  area: str,
                                   file_path: str) -> None:
     """
     Download data from the the Copernicus Climate Data Store
     :param variables: a list of fields to be downloaded on the specified dates and times
     :param dates: a single date or list of dates to be included in the file
     :param times: a single time or list of times to be included in the file
+    :param area: an area of interest to be included in the file
     :param file_path: a path to the output file containing all of the downloaded data
     :return: a Boolean value; true, if the download completed successfully
     """
@@ -105,19 +107,43 @@ def download_era5_reanalysis_data(variables: Union[Var, List[Var], List[str]],
     variables = parse_variables()
     file_format = ext_to_file_type[extension]
 
+    # Extract AOI box values
+    vals = area[0].replace('[','').replace(']','').split(',')
+    area_box = False
+    for val in vals:
+        if float(val) != 0:
+            area_box = True
+
+    # Run C3S API
     c = cdsapi.Client()
-    c.retrieve(
-        'reanalysis-era5-single-levels',
-        {
-            'product_type': 'reanalysis',
-            'variable': variables,
-            'year': years,
-            'month': months,
-            'day': days,
-            'time': times,
-            'format': file_format,
-        },
-        file_path)
+    if area_box:
+        c.retrieve(
+            'reanalysis-era5-single-levels',
+            {
+                'product_type': 'reanalysis',
+                'variable': variables,
+                'year': years,
+                'month': months,
+                'day': days,
+                'time': times,
+                'area': [vals[0], vals[1], vals[2], vals[3]],
+                'format': file_format,
+            },
+            file_path)
+    else:
+        c.retrieve(
+            'reanalysis-era5-single-levels',
+            {
+                'product_type': 'reanalysis',
+                'variable': variables,
+                'year': years,
+                'month': months,
+                'day': days,
+                'time': times,
+                'format': file_format,
+            },
+            file_path)
+
 
     if not os.path.isfile(file_path):
         raise RuntimeError("Unable to locate output file '{}'.".format(file_path))
@@ -130,6 +156,7 @@ def main() -> int:
     parser.add_argument("variables", nargs="+", help="Specify one or more variables to be downloaded."
                                                      "  Supported variables: [{}]"
                         .format(", ".join(map_var_names.values())))
+    parser.add_argument("-a", "--area", nargs="+", help="Area to be downloaded (format: [x, x, x, x])")
     parser.add_argument("-d", "--dates", nargs="+", help="Date of the data set to be downloaded (format: YYYY-MM-DD)")
     parser.add_argument("-t", "--times", nargs="+", help="Time of the data set to be downloaded (format: HH:MM)")
     parser.add_argument("-o", "--out_file", nargs=1, help="Filename for the downloaded data.")
@@ -151,8 +178,12 @@ def main() -> int:
         print("Missing 'times' argument.")
         return 1
 
+    # Optional area
+    if not args.area:
+        args.area = [0, 0, 0, 0]
+
     try:
-        download_era5_reanalysis_data(dates=dates, times=times, variables=args.variables, file_path=file_path)
+        download_era5_reanalysis_data(dates=dates, times=times, variables=args.variables, area=args.area, file_path=file_path)
 
         return 0
     except ValueError as ex:

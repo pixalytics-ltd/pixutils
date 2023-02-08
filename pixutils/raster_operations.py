@@ -4,9 +4,8 @@ from collections import namedtuple
 from rsgislib.imagecalc import BandDefn
 from rsgislib import imageutils
 from rsgislib import imagecalc
-from rsgislib.imageutils import maskImage, genValidMask
 from rsgislib import TYPE_32FLOAT
-import gdal
+from osgeo import gdal
 
 
 ValueRange = namedtuple("ValueRange", ["min", "max"])
@@ -99,12 +98,12 @@ def apply_mask(input_file_path: str,
     mask_file_path = Path(input_file_path).with_suffix(".mask.tif")
 
     #   create the mask file and check it exists
-    genValidMask(input_file_path, str(mask_file_path), data_format.format, data_min)
+    imageutils.genValidMask(input_file_path, str(mask_file_path), data_format.format, data_min)
     if not os.path.isfile(mask_file_path):
         raise FileNotFoundError("Unable to find generated mask file: '{}'.".format(mask_file_path))
 
     #   apply the mask file
-    maskImage(input_file_path,
+    imageutils.maskImage(input_file_path,
               str(mask_file_path),
               output_file_path,
               data_format.format,
