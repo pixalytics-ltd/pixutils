@@ -58,6 +58,7 @@ def download_era5_reanalysis_data(variables: Union[Var, List[Var], List[str]],
                                   dates: Union[date, List[date]],
                                   times: Union[time, List[time]],
                                   area: str,
+                                  monthly: str,
                                   file_path: str) -> None:
     """
     Download data from the the Copernicus Climate Data Store
@@ -65,6 +66,7 @@ def download_era5_reanalysis_data(variables: Union[Var, List[Var], List[str]],
     :param dates: a single date or list of dates to be included in the file
     :param times: a single time or list of times to be included in the file
     :param area: an area of interest to be included in the file
+    :param monthly: download monthly accumulated data
     :param file_path: a path to the output file containing all of the downloaded data
     :return: a Boolean value; true, if the download completed successfully
     """
@@ -116,7 +118,21 @@ def download_era5_reanalysis_data(variables: Union[Var, List[Var], List[str]],
 
     # Run C3S API
     c = cdsapi.Client()
-    if area_box:
+
+    if monthly:
+        c.retrieve(
+            'reanalysis-era5-land-monthly-means',
+            {
+                'product_type': 'monthly_averaged_reanalysis',
+                'variable': variables,
+                'year': years,
+                'month': months,
+                'time': '00:00',
+                'area': [vals[0], vals[1], vals[2], vals[3]],
+                'format': file_format,
+            },
+            file_path)
+    elif area_box:
         c.retrieve(
             'reanalysis-era5-single-levels',
             {
@@ -160,8 +176,11 @@ def main() -> int:
     parser.add_argument("-d", "--dates", nargs="+", help="Date of the data set to be downloaded (format: YYYY-MM-DD)")
     parser.add_argument("-t", "--times", nargs="+", help="Time of the data set to be downloaded (format: HH:MM)")
     parser.add_argument("-o", "--out_file", nargs=1, help="Filename for the downloaded data.")
+    parser.add_argument("-m", "--monthly", action="store_true", default=False, help="Use monthly reanalysis data")
 
     args = parser.parse_args()
+    #print("Args: {}".format(args))
+
     dates = [datetime.strptime(d, "%Y-%m-%d").date() for d in args.dates] if args.dates is not None else []
     times = [datetime.strptime(t, "%H:%M").time() for t in args.times] if args.times is not None else []
     file_path = os.path.expanduser(args.out_file[0]) if args.out_file is not None else None
@@ -183,7 +202,7 @@ def main() -> int:
         args.area = [0, 0, 0, 0]
 
     try:
-        download_era5_reanalysis_data(dates=dates, times=times, variables=args.variables, area=args.area, file_path=file_path)
+        download_era5_reanalysis_data(dates=dates, times=times, variables=args.variables, area=args.area, monthly=args.monthly, file_path=file_path)
 
         return 0
     except ValueError as ex:
