@@ -110,7 +110,7 @@ def download_era5_reanalysis_data(variables: Union[Var, List[Var], List[str]],
     file_format = ext_to_file_type[extension]
 
     # Extract AOI box values
-    vals = area[0].replace('[','').replace(']','').split(',')
+    vals = area.replace('[','').replace(']','').split(',')
     area_box = False
     for val in vals:
         if float(val) != 0:
