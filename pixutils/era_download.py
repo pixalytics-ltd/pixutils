@@ -4,6 +4,7 @@ import argparse
 import sys
 import os
 import cdsapi
+import requests
 from pathlib import Path
 from datetime import date, time, datetime
 from typing import List, Union
@@ -58,7 +59,7 @@ def download_era5_reanalysis_data(variables: Union[Var, List[Var], List[str]],
                                   dates: Union[date, List[date]],
                                   times: Union[time, List[time]],
                                   area: str,
-                                  monthly: str,
+                                  frequency: str,
                                   file_path: str) -> None:
     """
     Download data from the the Copernicus Climate Data Store
@@ -66,7 +67,7 @@ def download_era5_reanalysis_data(variables: Union[Var, List[Var], List[str]],
     :param dates: a single date or list of dates to be included in the file
     :param times: a single time or list of times to be included in the file
     :param area: an area of interest to be included in the file
-    :param monthly: download monthly accumulated data
+    :param frequency: 'monthly','daily' or 'hourly'
     :param file_path: a path to the output file containing all of the downloaded data
     :return: a Boolean value; true, if the download completed successfully
     """
@@ -119,7 +120,7 @@ def download_era5_reanalysis_data(variables: Union[Var, List[Var], List[str]],
     # Run C3S API
     c = cdsapi.Client()
 
-    if monthly:
+    if frequency == 'monthly':
         c.retrieve(
             'reanalysis-era5-land-monthly-means',
             {
@@ -132,6 +133,48 @@ def download_era5_reanalysis_data(variables: Union[Var, List[Var], List[str]],
                 'format': file_format,
             },
             file_path)
+        
+    elif frequency == 'daily':
+
+        # TODO JC UNTESTED - queue time was too long 
+        # Outputs one .nc file per month so need to make a folder instead of a single file
+        Path(file_path).mkdir(exist_ok=True)
+
+        years_unique = list(set(years))
+        months_unique = list(set(months))
+
+        for yr in years_unique:
+            for mn in months_unique:
+                result = c.service(
+                    "tool.toolbox.orchestrator.workflow",
+                    params={
+                        "realm": "user-apps",
+                        "project": "app-c3s-daily-era5-statistics",
+                        "version": "master",
+                        "kwargs": {
+                            "dataset": "reanalysis-era5-single-levels",
+                            "product_type": "reanalysis",
+                            "variable": variables,
+                            "statistic": "daily_mean",
+                            "year": yr,
+                            "month": mn,
+                            "time_zone": "UTC+00:0",
+                            "frequency": "3-hourly",
+                            "grid": "0.25/0.25",
+                            "area": {"lat": [vals[2], vals[0]], "lon": [vals[1], vals[3]]}
+                        },
+                    "workflow_name": "application"
+                    })
+                file_name = file_path + "\download_" + yr + "_" + mn + ".nc"
+
+                location=result[0]['location']
+                res = requests.get(location, stream = True)
+                print("Writing data to " + file_name)
+                with open(file_name,'wb') as fh:
+                    for r in res.iter_content(chunk_size = 1024):
+                        fh.write(r)
+                fh.close()
+
     elif area_box:
         c.retrieve(
             'reanalysis-era5-single-levels',
