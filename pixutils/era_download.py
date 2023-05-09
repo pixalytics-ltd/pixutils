@@ -143,6 +143,9 @@ def download_era5_reanalysis_data(variables: Union[Var, List[Var], List[str]],
         years_unique = list(set(years))
         months_unique = list(set(months))
 
+        # lat and lon should be float
+        vals = [float(v) for v in vals]
+
         for yr in years_unique:
             for mn in months_unique:
                 result = c.service(
@@ -156,24 +159,29 @@ def download_era5_reanalysis_data(variables: Union[Var, List[Var], List[str]],
                             "product_type": "reanalysis",
                             "variable": variables,
                             "statistic": "daily_mean",
-                            "year": yr,
-                            "month": mn,
+                            "year": '1979',#str(yr),
+                            "month": '01',#str(mn),
                             "time_zone": "UTC+00:0",
-                            "frequency": "3-hourly",
-                            "grid": "0.25/0.25",
-                            "area": {"lat": [vals[2], vals[0]], "lon": [vals[1], vals[3]]}
+                            "frequency": "1-hourly",
+                            # "grid": "1.0/1.0",
+                            # "area": {"lat": [vals[2], vals[0]], "lon": [vals[1], vals[3]]}
                         },
                     "workflow_name": "application"
                     })
-                file_name = file_path + "\download_" + yr + "_" + mn + ".nc"
+        c.download(result)
 
-                location=result[0]['location']
-                res = requests.get(location, stream = True)
-                print("Writing data to " + file_name)
-                with open(file_name,'wb') as fh:
-                    for r in res.iter_content(chunk_size = 1024):
-                        fh.write(r)
-                fh.close()
+        oldfn = result[0]['location'][-39:]
+        newfn = file_path
+        os.rename(oldfn, newfn)
+                # file_name = file_path.replace('.nc',"_" + str(yr) + "_" + str(mn) + ".nc")
+
+                # location=result[0]['location']
+                # res = requests.get(location, stream = True)
+                # print("Writing data to " + file_name)
+                # with open(file_name,'wb') as fh:
+                #     for r in res.iter_content(chunk_size = 1024):
+                #         fh.write(r)
+                # fh.close()
 
     elif area_box:
         c.retrieve(
@@ -202,7 +210,6 @@ def download_era5_reanalysis_data(variables: Union[Var, List[Var], List[str]],
                 'format': file_format,
             },
             file_path)
-
 
     if not os.path.isfile(file_path):
         raise RuntimeError("Unable to locate output file '{}'.".format(file_path))
