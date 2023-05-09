@@ -38,10 +38,10 @@ years =  [
  
 # Retrieve all months for a given year.
  
-months = ['01']#, '02', '03',
-            # '04', '05', '06',
-            # '07', '08', '09',
-            # '10', '11', '12']
+months = ['01', '02', '03',
+            '04', '05', '06',
+            '07', '08', '09',
+            '10', '11', '12']
  
 # For valid keywords, see Table 2 of:
 # https://datastore.copernicus-climate.eu/documents/app-c3s-daily-era5-statistics/C3S_Application-Documentation_ERA5-daily-statistics-v2.pdf
@@ -71,9 +71,12 @@ for yr in years:
                  "month": mn,
                  "time_zone": "UTC+00:0",
                  "frequency": "1-hourly",
-                 "grid": "1.0/1.0",
-                 "area":{"lat": [10, 60], "lon": [65, 140]}
-        
+#
+# Users can change the output grid resolution and selected area
+#
+#                "grid": "1.0/1.0",
+#                "area":{"lat": [10, 60], "lon": [65, 140]}
+ 
                  },
         "workflow_name": "application"
         })
