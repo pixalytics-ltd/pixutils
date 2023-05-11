@@ -158,44 +158,52 @@ def download_era5_reanalysis_data(variables: Union[Var, List[Var], List[str]],
             return rtn.drop_vars([i for i in list(ds.coords) if not i in coords])
 
         ymfiles=[]
+        
         for yr in years_unique:
             for mn in months_unique:
+
                 datestr = str(yr) + str(mn)
-                varfiles=[]
-                for var in variables:
-                    result = c.service(
-                        "tool.toolbox.orchestrator.workflow",
-                        params={
-                            "realm": "user-apps",
-                            "project": "app-c3s-daily-era5-statistics",
-                            "version": "master",
-                            "kwargs": {
-                                "dataset": "reanalysis-era5-single-levels",
-                                "product_type": "reanalysis",
-                                "variable": var,
-                                "statistic": "daily_mean",
-                                "year": str(yr),
-                                "month": str(mn),
-                                "time_zone": "UTC+00:0",
-                                "frequency": "1-hourly", # TODO JC55 Test 1- 3- and 6- hourly speeds
-                                "area": {"lat": [vals[2], vals[0]], "lon": [vals[1], vals[3]]}
-                            },
-                        "workflow_name": "application"
-                        })
-                    c.download(result)
-
-                    oldfn = result[0]['location'][-39:]
-                    newfn = prefix + '_{}_{}.nc'.format(var,datestr)
-                    os.remove(oldfn) if os.path.isfile(newfn) else os.rename(oldfn, newfn)
-                    varfiles.append(newfn)
-                
-                # merge all variables into single file
-                dses = [open_ds(f) for f in varfiles]
-
                 newfile = prefix + '_{}.nc'.format(datestr)
+
                 if not os.path.isfile(newfile):
-                    xr.merge(dses).to_netcdf(newfile)
-                ymfiles.append(newfile)
+                    varfiles=[]
+                    for var in variables:
+                        newfile = prefix + '_{}_{}.nc'.format(var,datestr)
+                        
+                        if not os.path.isfile(newfn):
+
+                            result = c.service(
+                                "tool.toolbox.orchestrator.workflow",
+                                params={
+                                    "realm": "user-apps",
+                                    "project": "app-c3s-daily-era5-statistics",
+                                    "version": "master",
+                                    "kwargs": {
+                                        "dataset": "reanalysis-era5-single-levels",
+                                        "product_type": "reanalysis",
+                                        "variable": var,
+                                        "statistic": "daily_mean",
+                                        "year": str(yr),
+                                        "month": str(mn),
+                                        "time_zone": "UTC+00:0",
+                                        "frequency": "1-hourly", # TODO JC55 Test 1- 3- and 6- hourly speeds
+                                        "area": {"lat": [vals[2], vals[0]], "lon": [vals[1], vals[3]]}
+                                    },
+                                "workflow_name": "application"
+                                })
+                            c.download(result)
+
+                            oldfn = result[0]['location'][-39:]
+                            os.rename(oldfn, newfn)
+                            varfiles.append(newfn)
+                    
+                    # merge all variables into single file
+                    dses = [open_ds(f) for f in varfiles]
+
+                    newfile = prefix + '_{}.nc'.format(datestr)
+                    if not os.path.isfile(newfile):
+                        xr.merge(dses).to_netcdf(newfile)
+                    ymfiles.append(newfile)
 
         # merge all months and years into single file
         dses = [open_ds(f) for f in ymfiles]
