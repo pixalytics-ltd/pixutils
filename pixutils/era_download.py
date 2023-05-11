@@ -5,6 +5,8 @@ import sys
 import os
 import cdsapi
 import requests
+import glob
+import xarray as xr
 from pathlib import Path
 from datetime import date, time, datetime
 from typing import List, Union
@@ -136,9 +138,9 @@ def download_era5_reanalysis_data(variables: Union[Var, List[Var], List[str]],
         
     elif frequency == 'daily':
 
-        # TODO JC UNTESTED - queue time was too long 
-        # Outputs one .nc file per month so need to make a folder instead of a single file
-        Path(file_path).mkdir(exist_ok=True)
+        prefix = file_path.replace('.nc','')
+        # if not os.path.isdir(folder):
+        #     os.mkdir(folder)
 
         years_unique = list(set(years))
         months_unique = list(set(months))
@@ -146,42 +148,59 @@ def download_era5_reanalysis_data(variables: Union[Var, List[Var], List[str]],
         # lat and lon should be float
         vals = [float(v) for v in vals]
 
+        coords = ['time','lat','lon']
+
+        def open_ds(f):
+            with xr.open_dataset(f) as ds:
+                rtn = ds.load()
+
+            os.remove(f)
+            return rtn.drop_vars([i for i in list(ds.coords) if not i in coords])
+
+        ymfiles=[]
         for yr in years_unique:
             for mn in months_unique:
-                result = c.service(
-                    "tool.toolbox.orchestrator.workflow",
-                    params={
-                        "realm": "user-apps",
-                        "project": "app-c3s-daily-era5-statistics",
-                        "version": "master",
-                        "kwargs": {
-                            "dataset": "reanalysis-era5-single-levels",
-                            "product_type": "reanalysis",
-                            "variable": variables,
-                            "statistic": "daily_mean",
-                            "year": '1979',#str(yr),
-                            "month": '01',#str(mn),
-                            "time_zone": "UTC+00:0",
-                            "frequency": "1-hourly",
-                            # "grid": "1.0/1.0",
-                            # "area": {"lat": [vals[2], vals[0]], "lon": [vals[1], vals[3]]}
-                        },
-                    "workflow_name": "application"
-                    })
-        c.download(result)
+                datestr = str(yr) + str(mn)
+                varfiles=[]
+                for var in variables:
+                    result = c.service(
+                        "tool.toolbox.orchestrator.workflow",
+                        params={
+                            "realm": "user-apps",
+                            "project": "app-c3s-daily-era5-statistics",
+                            "version": "master",
+                            "kwargs": {
+                                "dataset": "reanalysis-era5-single-levels",
+                                "product_type": "reanalysis",
+                                "variable": var,
+                                "statistic": "daily_mean",
+                                "year": str(yr),
+                                "month": str(mn),
+                                "time_zone": "UTC+00:0",
+                                "frequency": "1-hourly", # TODO JC55 Test 1- 3- and 6- hourly speeds
+                                "area": {"lat": [vals[2], vals[0]], "lon": [vals[1], vals[3]]}
+                            },
+                        "workflow_name": "application"
+                        })
+                    c.download(result)
 
-        oldfn = result[0]['location'][-39:]
-        newfn = file_path
-        os.rename(oldfn, newfn)
-                # file_name = file_path.replace('.nc',"_" + str(yr) + "_" + str(mn) + ".nc")
+                    oldfn = result[0]['location'][-39:]
+                    newfn = prefix + '_{}_{}.nc'.format(var,datestr)
+                    os.remove(oldfn) if os.path.isfile(newfn) else os.rename(oldfn, newfn)
+                    varfiles.append(newfn)
+                
+                # merge all variables into single file
+                dses = [open_ds(f) for f in varfiles]
 
-                # location=result[0]['location']
-                # res = requests.get(location, stream = True)
-                # print("Writing data to " + file_name)
-                # with open(file_name,'wb') as fh:
-                #     for r in res.iter_content(chunk_size = 1024):
-                #         fh.write(r)
-                # fh.close()
+                newfile = prefix + '_{}.nc'.format(datestr)
+                if not os.path.isfile(newfile):
+                    xr.merge(dses).to_netcdf(newfile)
+                ymfiles.append(newfile)
+
+        # merge all months and years into single file
+        dses = [open_ds(f) for f in ymfiles]
+        if not os.path.isfile(file_path):
+            xr.merge(dses).to_netcdf(file_path)
 
     elif area_box:
         c.retrieve(
