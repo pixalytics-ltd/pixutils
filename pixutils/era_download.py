@@ -196,7 +196,7 @@ def download_era5_reanalysis_data(variables: Union[Var, List[Var], List[str]],
                             varfiles.append(fn_var)
                     
                     # merge all variables into single file
-                    merge(varfiles,fn_var)
+                    merge(varfiles,fn_yrmn)
                     ymfiles.append(fn_yrmn)
 
         # merge all months and years into single file
