@@ -139,38 +139,36 @@ def download_era5_reanalysis_data(variables: Union[Var, List[Var], List[str]],
     elif frequency == 'daily':
 
         prefix = file_path.replace('.nc','')
-        # if not os.path.isdir(folder):
-        #     os.mkdir(folder)
-
-        years_unique = list(set(years))
-        months_unique = list(set(months))
 
         # lat and lon should be float
         vals = [float(v) for v in vals]
 
-        coords = ['time','lat','lon']
+        def merge(files,topath):
+            coords = ['time','lat','lon']
+            def open_ds(f):
+                with xr.open_dataset(f) as ds:
+                    rtn = ds.load()
 
-        def open_ds(f):
-            with xr.open_dataset(f) as ds:
-                rtn = ds.load()
-
-            os.remove(f)
-            return rtn.drop_vars([i for i in list(ds.coords) if not i in coords])
+                os.remove(f)
+                return rtn.drop_vars([i for i in list(ds.coords) if not i in coords])
+            dses = [open_ds(f) for f in files]
+            xr.merge(dses).to_netcdf(topath)
 
         ymfiles=[]
         
-        for yr in years_unique:
-            for mn in months_unique:
+        # TODO JC - don't do all years and months, only within requested timeframe
+        for yr in list(set(years)):
+            for mn in list(set(months)):
 
                 datestr = str(yr) + str(mn)
-                newfile = prefix + '_{}.nc'.format(datestr)
+                fn_yrmn = prefix + '_{}.nc'.format(datestr)
 
-                if not os.path.isfile(newfile):
+                if not os.path.isfile(fn_yrmn):
                     varfiles=[]
                     for var in variables:
-                        newfile = prefix + '_{}_{}.nc'.format(var,datestr)
+                        fn_var = prefix + '_{}_{}.nc'.format(var,datestr)
                         
-                        if not os.path.isfile(newfn):
+                        if not os.path.isfile(fn_var):
 
                             result = c.service(
                                 "tool.toolbox.orchestrator.workflow",
@@ -194,21 +192,15 @@ def download_era5_reanalysis_data(variables: Union[Var, List[Var], List[str]],
                             c.download(result)
 
                             oldfn = result[0]['location'][-39:]
-                            os.rename(oldfn, newfn)
-                            varfiles.append(newfn)
+                            os.rename(oldfn, fn_var)
+                            varfiles.append(fn_var)
                     
                     # merge all variables into single file
-                    dses = [open_ds(f) for f in varfiles]
-
-                    newfile = prefix + '_{}.nc'.format(datestr)
-                    if not os.path.isfile(newfile):
-                        xr.merge(dses).to_netcdf(newfile)
-                    ymfiles.append(newfile)
+                    merge(varfiles,fn_var)
+                    ymfiles.append(fn_yrmn)
 
         # merge all months and years into single file
-        dses = [open_ds(f) for f in ymfiles]
-        if not os.path.isfile(file_path):
-            xr.merge(dses).to_netcdf(file_path)
+        merge(ymfiles,file_path)
 
     elif area_box:
         c.retrieve(
