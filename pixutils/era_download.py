@@ -4,6 +4,7 @@ import argparse
 import sys
 import os
 import cdsapi
+import xarray as xr
 from pathlib import Path
 from datetime import date, time, datetime
 from typing import List, Union
@@ -58,7 +59,7 @@ def download_era5_reanalysis_data(variables: Union[Var, List[Var], List[str]],
                                   dates: Union[date, List[date]],
                                   times: Union[time, List[time]],
                                   area: str,
-                                  monthly: str,
+                                  frequency: str,
                                   file_path: str) -> None:
     """
     Download data from the the Copernicus Climate Data Store
@@ -66,7 +67,7 @@ def download_era5_reanalysis_data(variables: Union[Var, List[Var], List[str]],
     :param dates: a single date or list of dates to be included in the file
     :param times: a single time or list of times to be included in the file
     :param area: an area of interest to be included in the file
-    :param monthly: download monthly accumulated data
+    :param frequency: 'monthly','daily' or 'hourly'
     :param file_path: a path to the output file containing all of the downloaded data
     :return: a Boolean value; true, if the download completed successfully
     """
@@ -119,7 +120,7 @@ def download_era5_reanalysis_data(variables: Union[Var, List[Var], List[str]],
     # Run C3S API
     c = cdsapi.Client()
 
-    if monthly:
+    if frequency == 'monthly':
         c.retrieve(
             'reanalysis-era5-land-monthly-means',
             {
@@ -132,6 +133,73 @@ def download_era5_reanalysis_data(variables: Union[Var, List[Var], List[str]],
                 'format': file_format,
             },
             file_path)
+        
+    elif frequency == 'daily':
+
+        prefix = file_path.replace('.nc','')
+
+        # lat and lon should be float
+        vals = [float(v) for v in vals]
+
+        def merge(files,topath):
+            coords = ['time','lat','lon']
+            def open_ds(f):
+                with xr.open_dataset(f) as ds:
+                    rtn = ds.load()
+
+                os.remove(f)
+                return rtn.drop_vars([i for i in list(ds.coords) if not i in coords])
+            dses = [open_ds(f) for f in files]
+            xr.merge(dses).to_netcdf(topath)
+
+        ymfiles=[]
+        
+        # TODO JC - don't do all years and months, only within requested timeframe
+        for yr in list(set(years)):
+            for mn in list(set(months)):
+
+                datestr = str(yr) + str(mn)
+                fn_yrmn = prefix + '_{}.nc'.format(datestr)
+
+                if not os.path.isfile(fn_yrmn):
+                    varfiles=[]
+                    for var in variables:
+                        fn_var = prefix + '_{}_{}.nc'.format(var,datestr)
+                        
+                        if not os.path.isfile(fn_var):
+
+                            result = c.service(
+                                "tool.toolbox.orchestrator.workflow",
+                                params={
+                                    "realm": "user-apps",
+                                    "project": "app-c3s-daily-era5-statistics",
+                                    "version": "master",
+                                    "kwargs": {
+                                        "dataset": "reanalysis-era5-single-levels",
+                                        "product_type": "reanalysis",
+                                        "variable": var,
+                                        "statistic": "daily_mean",
+                                        "year": str(yr),
+                                        "month": str(mn),
+                                        "time_zone": "UTC+00:0",
+                                        "frequency": "1-hourly",
+                                        "area": {"lat": [vals[2], vals[0]], "lon": [vals[1], vals[3]]}
+                                    },
+                                "workflow_name": "application"
+                                })
+                            c.download(result)
+
+                            oldfn = result[0]['location'][-39:]
+                            os.rename(oldfn, fn_var)
+                            varfiles.append(fn_var)
+                    
+                    # merge all variables into single file
+                    merge(varfiles,fn_yrmn)
+                    ymfiles.append(fn_yrmn)
+
+        # merge all months and years into single file
+        merge(ymfiles,file_path)
+
     elif area_box:
         c.retrieve(
             'reanalysis-era5-single-levels',
@@ -159,7 +227,6 @@ def download_era5_reanalysis_data(variables: Union[Var, List[Var], List[str]],
                 'format': file_format,
             },
             file_path)
-
 
     if not os.path.isfile(file_path):
         raise RuntimeError("Unable to locate output file '{}'.".format(file_path))
@@ -215,4 +282,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-
