@@ -242,8 +242,8 @@ def main() -> int:
     parser.add_argument("-a", "--area", nargs="+", help="Area to be downloaded (format: [x, x, x, x])")
     parser.add_argument("-d", "--dates", nargs="+", help="Date of the data set to be downloaded (format: YYYY-MM-DD)")
     parser.add_argument("-t", "--times", nargs="+", help="Time of the data set to be downloaded (format: HH:MM)")
+    parser.add_argument("-f", "--frequency", dest="frequency", default='monthly', help="Define frequency of accessed ECMWF data")
     parser.add_argument("-o", "--out_file", nargs=1, help="Filename for the downloaded data.")
-    parser.add_argument("-m", "--monthly", action="store_true", default=False, help="Use monthly reanalysis data")
 
     args = parser.parse_args()
     #print("Args: {}".format(args))
@@ -269,7 +269,7 @@ def main() -> int:
         args.area = [0, 0, 0, 0]
 
     try:
-        download_era5_reanalysis_data(dates=dates, times=times, variables=args.variables, area=args.area, monthly=args.monthly, file_path=file_path)
+        download_era5_reanalysis_data(dates=dates, times=times, variables=args.variables, area=args.area, frequency=args.frequency, file_path=file_path)
 
         return 0
     except ValueError as ex:
