@@ -130,7 +130,8 @@ def download_era5_reanalysis_data(variables: Union[Var, List[Var], List[str]],
                 'month': months,
                 'time': '00:00',
                 'area': [vals[0], vals[1], vals[2], vals[3]],
-                'format': file_format,
+                'data_format': file_format,
+                'download_format': 'unarchived',
             },
             file_path)
         
