@@ -3,6 +3,9 @@
 import argparse
 import sys
 import os
+import shutil
+import glob
+import zipfile
 import cdsapi
 import xarray as xr
 from pathlib import Path
@@ -53,6 +56,105 @@ ext_to_file_type = {
     ".grib": "grib",
     ".nc": "netcdf",
 }
+
+# Merge NetCDF files
+def merge(files, topath, latitude = False):
+    if latitude:
+        coords = ['valid_time', 'latitude', 'longitude']
+    else:
+        coords = ['time', 'lat', 'lon']
+
+    def open_ds(f):
+        with xr.open_dataset(f) as ds:
+            rtn = ds.load()
+
+        os.remove(f)
+        return rtn.drop_vars([i for i in list(ds.coords) if not i in coords])
+
+    dses = [open_ds(f) for f in files]
+    marray = xr.merge(dses)
+    if latitude:
+        marray = marray.rename(name_dict={'valid_time':'time'})
+    marray.to_netcdf(topath)
+
+
+def download_utci_data(dates: Union[date, List[date]],
+                                  area: str,
+                                  file_path: str) -> None:
+    """
+    Download data from the the Copernicus Climate Data Store for UTCI
+    :param dates: a single date or list of dates to be included in the file
+    :param area: an area of interest to be included in the file
+    :param file_path: a path to the output file containing all of the downloaded data
+    :return: a Boolean value; true, if the download completed successfully
+    """
+    path = Path(file_path)
+
+    #   make sure the output directory exists
+    Path(path.parent).mkdir(parents=True, exist_ok=True)
+
+    #   determine output format from the output file extension
+    extension = path.suffix.lower()
+    if extension not in ext_to_file_type:
+        raise ValueError("Unable to determine file type from extension '{}'.".format(extension))
+
+    # convert each parameter into unique lists
+    years = list({_date.year for _date in dates}) if isinstance(dates, List) else [dates.year]
+    months = list({'{:02}'.format(_date.month) for _date in dates}) if isinstance(dates, List) else [dates.month]
+    days = list({'{:02}'.format(_date.day) for _date in dates}) if isinstance(dates, List) else [dates.day]
+
+    # Extract AOI box values
+    vals = area.replace('[','').replace(']','').split(',')
+    area_box = False
+    for val in vals:
+        if float(val) != 0:
+            area_box = True
+
+    # Run C3S API
+    c = cdsapi.Client()
+
+    # Download year by year
+    ymfiles = []
+    yfolder,ext = os.path.splitext(file_path)
+    if not os.path.exists(yfolder):
+        os.mkdir(yfolder)
+    for year in years:
+        request = {
+                'variable': ['universal_thermal_climate_index'],
+                'version': '1_1',
+                'product_type': 'consolidated_dataset',
+                'year': [str(year)],
+                'month': sorted(months),
+                'day': sorted(days),
+                'area': [vals[0], vals[1], vals[2], vals[3]]
+            }
+        print("Requesting: {}".format(request))
+        fpath = os.path.join(yfolder,str(year)+ext)
+        c.retrieve('derived-utci-historical',
+            request, fpath)
+        print("Downloaded: {}".format(fpath))
+        ymfiles.append(fpath)
+        sys.exit(1)
+        merge(ymfiles, file_path, latitude=True)
+
+    # Check if zip file rather than NetCDF
+    if zipfile.is_zipfile(file_path):
+        # Try to extract zip and merge if more than one file
+        stem, ext = os.path.splitext(os.path.basename(file_path))
+        zfolder = file_path.replace(ext,"")
+        if not os.path.exists(zfolder):
+            os.mkdir(zfolder)
+        with zipfile.ZipFile(file_path, "r") as zip_ref:
+            zip_ref.extractall(zfolder)
+        ymfiles = glob.glob(os.path.join(zfolder,"*"+ext))
+        print("Merging {} {} files".format(len(ymfiles),ext))
+        merge(ymfiles, file_path, latitude=True)
+        shutil.rmtree(zfolder)
+
+    if not os.path.isfile(file_path):
+        raise RuntimeError("Unable to locate output file '{}'.".format(file_path))
+
+    print("Downloaded data was saved to '{}'.".format(file_path))
 
 
 def download_era5_reanalysis_data(variables: Union[Var, List[Var], List[str]],
@@ -121,85 +223,77 @@ def download_era5_reanalysis_data(variables: Union[Var, List[Var], List[str]],
     c = cdsapi.Client()
 
     if frequency == 'monthly':
-        c.retrieve(
-            'reanalysis-era5-land-monthly-means',
-            {
+        request = {
                 'product_type': 'monthly_averaged_reanalysis',
                 'variable': variables,
                 'year': years,
                 'month': months,
-                'time': '00:00',
-                'area': [vals[0], vals[1], vals[2], vals[3]],
+                'time': ['00:00'],
                 'data_format': file_format,
                 'download_format': 'unarchived',
-            },
-            file_path)
-        
+                'area': [vals[0], vals[1], vals[2], vals[3]]
+            }
+        print("Requesting: {}".format(request))
+        if not os.path.exists(file_path):
+            c.retrieve('reanalysis-era5-land-monthly-means',
+                request, file_path)
+
     elif frequency == 'daily':
 
-        prefix = file_path.replace('.nc','')
+        if os.path.exists(file_path):
+            print("{} already downloaded".format(file_path))
+        else:
+            prefix = file_path.replace('.nc','')
 
-        # lat and lon should be float
-        vals = [float(v) for v in vals]
+            # lat and lon should be float
+            vals = [float(v) for v in vals]
+            ymfiles=[]
 
-        def merge(files,topath):
-            coords = ['time','lat','lon']
-            def open_ds(f):
-                with xr.open_dataset(f) as ds:
-                    rtn = ds.load()
+            # TODO JC - don't do all years and months, only within requested timeframe
+            for yr in list(set(years)):
+                for mn in list(set(months)):
 
-                os.remove(f)
-                return rtn.drop_vars([i for i in list(ds.coords) if not i in coords])
-            dses = [open_ds(f) for f in files]
-            xr.merge(dses).to_netcdf(topath)
+                    datestr = str(yr) + str(mn)
+                    fn_yrmn = prefix + '_{}.nc'.format(datestr)
 
-        ymfiles=[]
-        
-        # TODO JC - don't do all years and months, only within requested timeframe
-        for yr in list(set(years)):
-            for mn in list(set(months)):
+                    if not os.path.isfile(fn_yrmn):
+                        varfiles=[]
+                        for var in variables:
+                            fn_var = prefix + '_{}_{}.nc'.format(var,datestr)
 
-                datestr = str(yr) + str(mn)
-                fn_yrmn = prefix + '_{}.nc'.format(datestr)
+                            if not os.path.isfile(fn_var):
 
-                if not os.path.isfile(fn_yrmn):
-                    varfiles=[]
-                    for var in variables:
-                        fn_var = prefix + '_{}_{}.nc'.format(var,datestr)
-                        
-                        if not os.path.isfile(fn_var):
+                                result = c.service(
+                                    "tool.toolbox.orchestrator.workflow",
+                                    params={
+                                        "realm": "user-apps",
+                                        "project": "app-c3s-daily-era5-statistics",
+                                        "version": "master",
+                                        "kwargs": {
+                                            "dataset": "reanalysis-era5-single-levels",
+                                            "product_type": "reanalysis",
+                                            "variable": var,
+                                            "statistic": "daily_mean",
+                                            "year": str(yr),
+                                            "month": str(mn),
+                                            "time_zone": "UTC+00:0",
+                                            "frequency": "1-hourly",
+                                            "area": {"lat": [vals[2], vals[0]], "lon": [vals[1], vals[3]]}
+                                        },
+                                    "workflow_name": "application"
+                                    })
+                                c.download(result)
 
-                            result = c.service(
-                                "tool.toolbox.orchestrator.workflow",
-                                params={
-                                    "realm": "user-apps",
-                                    "project": "app-c3s-daily-era5-statistics",
-                                    "version": "master",
-                                    "kwargs": {
-                                        "dataset": "reanalysis-era5-single-levels",
-                                        "product_type": "reanalysis",
-                                        "variable": var,
-                                        "statistic": "daily_mean",
-                                        "year": str(yr),
-                                        "month": str(mn),
-                                        "time_zone": "UTC+00:0",
-                                        "frequency": "1-hourly",
-                                        "area": {"lat": [vals[2], vals[0]], "lon": [vals[1], vals[3]]}
-                                    },
-                                "workflow_name": "application"
-                                })
-                            c.download(result)
+                                oldfn = result[0]['location'][-39:]
+                                os.rename(oldfn, fn_var)
+                                varfiles.append(fn_var)
 
-                            oldfn = result[0]['location'][-39:]
-                            os.rename(oldfn, fn_var)
-                            varfiles.append(fn_var)
-                    
-                    # merge all variables into single file
-                    merge(varfiles,fn_yrmn)
-                    ymfiles.append(fn_yrmn)
+                        # merge all variables into single file
+                        merge(varfiles,fn_yrmn)
+                        ymfiles.append(fn_yrmn)
 
-        # merge all months and years into single file
-        merge(ymfiles,file_path)
+            # merge all months and years into single file
+            merge(ymfiles,file_path)
 
     elif area_box:
         c.retrieve(
@@ -229,6 +323,21 @@ def download_era5_reanalysis_data(variables: Union[Var, List[Var], List[str]],
             },
             file_path)
 
+    # Check if zip file rather than NetCDF
+    if zipfile.is_zipfile(file_path):
+        # Try to extract zip and merge if more than one file
+        stem, ext = os.path.splitext(os.path.basename(file_path))
+        zfolder = file_path.replace(ext,"")
+        if not os.path.exists(zfolder):
+            os.mkdir(zfolder)
+        with zipfile.ZipFile(file_path, "r") as zip_ref:
+            zip_ref.extractall(zfolder)
+        ymfiles = glob.glob(os.path.join(zfolder,"*"+ext))
+        print("Extraction of zip and merging {} {} files: {}".format(len(ymfiles),ext,ymfiles))
+        os.remove(file_path)
+        merge(ymfiles, file_path, latitude=True)
+        shutil.rmtree(zfolder)
+
     if not os.path.isfile(file_path):
         raise RuntimeError("Unable to locate output file '{}'.".format(file_path))
 
@@ -243,6 +352,7 @@ def main() -> int:
     parser.add_argument("-a", "--area", nargs="+", help="Area to be downloaded (format: [x, x, x, x])")
     parser.add_argument("-d", "--dates", nargs="+", help="Date of the data set to be downloaded (format: YYYY-MM-DD)")
     parser.add_argument("-t", "--times", nargs="+", help="Time of the data set to be downloaded (format: HH:MM)")
+    parser.add_argument("-u", "--utci", action="store_true", default=False, help="Download UTCI rather than ERA5")
     parser.add_argument("-f", "--frequency", dest="frequency", default='monthly', help="Define frequency of accessed ECMWF data")
     parser.add_argument("-o", "--out_file", nargs=1, help="Filename for the downloaded data.")
 
@@ -261,7 +371,7 @@ def main() -> int:
         print("Missing 'dates' argument.")
         return 1
 
-    if len(times) == 0:
+    if not args.utci and len(times) == 0:
         print("Missing 'times' argument.")
         return 1
 
@@ -270,7 +380,11 @@ def main() -> int:
         args.area = [0, 0, 0, 0]
 
     try:
-        download_era5_reanalysis_data(dates=dates, times=times, variables=args.variables, area=args.area, frequency=args.frequency, file_path=file_path)
+        if args.utci:
+            download_utci_data(dates=dates, area=args.area, file_path=file_path)
+
+        else:
+            download_era5_reanalysis_data(dates=dates, times=times, variables=args.variables, area=args.area, frequency=args.frequency, file_path=file_path)
 
         return 0
     except ValueError as ex:
