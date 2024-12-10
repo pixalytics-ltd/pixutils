@@ -8,6 +8,7 @@ import glob
 import zipfile
 import cdsapi
 import xarray as xr
+import pandas as pd
 from pathlib import Path
 from datetime import date, time, datetime
 from typing import List, Union
@@ -58,23 +59,40 @@ ext_to_file_type = {
 }
 
 # Merge NetCDF files
-def merge(files, topath, latitude = False):
-    if latitude:
-        coords = ['valid_time', 'latitude', 'longitude']
+def merge(files, topath, latitude = False, day_merge = False, time_merge = False):
+
+    if time_merge:
+        #marray = xr.open_mfdataset(files, combine = 'by_coords')
+        for i,file in enumerate(files):
+            if i == 0:
+                marray = xr.open_dataset(file)
+            else:
+                ds_add = xr.open_dataset(file)
+                ds_new = xr.concat([marray, ds_add], 'time')
+                marray = ds_new.copy()
+                del ds_new, ds_add
+
     else:
-        coords = ['time', 'lat', 'lon']
+        if latitude:
+            coords = ['valid_time', 'latitude', 'longitude']
+        else:
+            coords = ['time', 'lat', 'lon']
 
-    def open_ds(f):
-        with xr.open_dataset(f) as ds:
-            rtn = ds.load()
+        def open_ds(f):
+            with xr.open_dataset(f) as ds:
+                rtn = ds.load()
 
-        os.remove(f)
-        return rtn.drop_vars([i for i in list(ds.coords) if not i in coords])
+            os.remove(f)
+            return rtn.drop_vars([i for i in list(ds.coords) if not i in coords])
 
-    dses = [open_ds(f) for f in files]
-    marray = xr.merge(dses)
-    if latitude:
-        marray = marray.rename(name_dict={'valid_time':'time'})
+        dses = [open_ds(f) for f in files]
+        marray = xr.concat(dses,'time')
+        if latitude:
+            marray = marray.rename(name_dict={'valid_time':'time'})
+        if day_merge:
+            # Convert to daily values (input hourly)
+            marray = marray.resample(time="1D").max()
+
     marray.to_netcdf(topath)
 
 
@@ -114,7 +132,7 @@ def download_utci_data(dates: Union[date, List[date]],
     c = cdsapi.Client()
 
     # Download year by year
-    ymfiles = []
+    mfiles = []
     yfolder,ext = os.path.splitext(file_path)
     if not os.path.exists(yfolder):
         os.mkdir(yfolder)
@@ -126,30 +144,35 @@ def download_utci_data(dates: Union[date, List[date]],
                 'year': [str(year)],
                 'month': sorted(months),
                 'day': sorted(days),
+                #'time': ['00:00'],
                 'area': [vals[0], vals[1], vals[2], vals[3]]
             }
         print("Requesting: {}".format(request))
         fpath = os.path.join(yfolder,str(year)+ext)
-        c.retrieve('derived-utci-historical',
-            request, fpath)
-        print("Downloaded: {}".format(fpath))
-        ymfiles.append(fpath)
-        sys.exit(1)
-        merge(ymfiles, file_path, latitude=True)
-
-    # Check if zip file rather than NetCDF
-    if zipfile.is_zipfile(file_path):
-        # Try to extract zip and merge if more than one file
-        stem, ext = os.path.splitext(os.path.basename(file_path))
-        zfolder = file_path.replace(ext,"")
-        if not os.path.exists(zfolder):
-            os.mkdir(zfolder)
-        with zipfile.ZipFile(file_path, "r") as zip_ref:
-            zip_ref.extractall(zfolder)
-        ymfiles = glob.glob(os.path.join(zfolder,"*"+ext))
-        print("Merging {} {} files".format(len(ymfiles),ext))
-        merge(ymfiles, file_path, latitude=True)
-        shutil.rmtree(zfolder)
+        #c.retrieve('derived-utci-historical',
+        #    request, fpath)
+        if os.path.exists(fpath):
+            print("Downloaded: {}".format(fpath))
+            # Check if zip file rather than NetCDF
+            if zipfile.is_zipfile(fpath):
+                # Try to extract zip and merge if more than one file
+                stem, ext = os.path.splitext(os.path.basename(fpath))
+                zfolder = fpath.replace(ext,"")
+                if not os.path.exists(zfolder):
+                    os.mkdir(zfolder)
+                with zipfile.ZipFile(fpath, "r") as zip_ref:
+                    zip_ref.extractall(zfolder)
+                ymfiles = glob.glob(os.path.join(zfolder,"*"+ext))
+                print("Merging {} {} files".format(len(ymfiles),ext))
+                os.remove(fpath)
+                merge(ymfiles, fpath, day_merge = True)
+                shutil.rmtree(zfolder)
+            mfiles.append(fpath)
+    print("Processed data: {}".format(mfiles))
+    if len(mfiles) > 1:
+        merge(mfiles, file_path, time_merge = True)
+    elif len(mfiles) == 1:
+        os.rename(mfiles[0],file_path)
 
     if not os.path.isfile(file_path):
         raise RuntimeError("Unable to locate output file '{}'.".format(file_path))
@@ -382,6 +405,7 @@ def main() -> int:
     try:
         if args.utci:
             download_utci_data(dates=dates, area=args.area, file_path=file_path)
+            print("Downloaded UTCI complete")
 
         else:
             download_era5_reanalysis_data(dates=dates, times=times, variables=args.variables, area=args.area, frequency=args.frequency, file_path=file_path)
