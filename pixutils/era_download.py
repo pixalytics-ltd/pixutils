@@ -32,7 +32,11 @@ class Var(Enum):
     wind_10m_u_component = auto()
     wind_10m_v_component = auto()
     temperature_2m = auto()
-
+    depoint_2m = auto()
+    longwave_down = auto()
+    shortwave_down = auto()
+    longwave_net = auto()
+    shortwave_net = auto()
 
 #   map a data source to the string used in the remote API call
 map_var_names = {
@@ -48,7 +52,12 @@ map_var_names = {
     Var.volumetric_soil_water_layer_3: "volumetric_soil_water_layer_3",
     Var.volumetric_soil_water_layer_4: "volumetric_soil_water_layer_4",
     Var.total_precipitation: "total_precipitation",
-    Var.temperature_2m: "2m_temperature"
+    Var.temperature_2m: "2m_temperature",
+    Var.depoint_2m: "2m_dewpoint_temperature",
+    Var.longwave_down: "mean_surface_downward_long_wave_radiation_flux",
+    Var.shortwave_down: "mean_surface_downward_short_wave_radiation_flux",
+    Var.longwave_net: "mean_surface_net_long_wave_radiation_flux",
+    Var.shortwave_net: "mean_surface_net_short_wave_radiation_flux"
 }
 
 
@@ -59,7 +68,12 @@ ext_to_file_type = {
 }
 
 # Merge NetCDF files
-def merge(files, topath, latitude = False, day_merge = False, time_merge = False):
+def merge(files, topath, latitude = False, day_merge = False, time_merge = False, file_merge = False):
+
+    if latitude:
+        coords = ['valid_time', 'latitude', 'longitude']
+    else:
+        coords = ['time', 'lat', 'lon']
 
     if time_merge:
         #marray = xr.open_mfdataset(files, combine = 'by_coords')
@@ -68,25 +82,22 @@ def merge(files, topath, latitude = False, day_merge = False, time_merge = False
                 marray = xr.open_dataset(file)
             else:
                 ds_add = xr.open_dataset(file)
-                ds_new = xr.concat([marray, ds_add], 'time')
+                ds_new = xr.concat([marray, ds_add], coords[0])
                 marray = ds_new.copy()
                 del ds_new, ds_add
 
     else:
-        if latitude:
-            coords = ['valid_time', 'latitude', 'longitude']
-        else:
-            coords = ['time', 'lat', 'lon']
-
         def open_ds(f):
             with xr.open_dataset(f) as ds:
                 rtn = ds.load()
 
-            os.remove(f)
             return rtn.drop_vars([i for i in list(ds.coords) if not i in coords])
 
         dses = [open_ds(f) for f in files]
-        marray = xr.concat(dses,'time')
+        if file_merge:
+            marray = xr.merge(dses)
+        else:
+            marray = xr.concat(dses, coords[0])
         if latitude:
             marray = marray.rename(name_dict={'valid_time':'time'})
         if day_merge:
@@ -256,10 +267,15 @@ def download_era5_reanalysis_data(variables: Union[Var, List[Var], List[str]],
                 'download_format': 'unarchived',
                 'area': [vals[0], vals[1], vals[2], vals[3]]
             }
-        print("Requesting: {}".format(request))
         if not os.path.exists(file_path):
-            c.retrieve('reanalysis-era5-land-monthly-means',
-                request, file_path)
+            if any("radiation" in var for var in variables):
+                print("Requesting ERA5: {}".format(request))
+                c.retrieve('reanalysis-era5-single-levels-monthly-means',
+                    request, file_path)
+            else:
+                print("Requesting ERA5-Land: {}".format(request))
+                c.retrieve('reanalysis-era5-land-monthly-means',
+                    request, file_path)
 
     elif frequency == 'daily':
 
@@ -280,39 +296,37 @@ def download_era5_reanalysis_data(variables: Union[Var, List[Var], List[str]],
                     fn_yrmn = prefix + '_{}.nc'.format(datestr)
 
                     if not os.path.isfile(fn_yrmn):
-                        varfiles=[]
-                        for var in variables:
-                            fn_var = prefix + '_{}_{}.nc'.format(var,datestr)
+                        request = {
+                            'product_type': 'reanalysis',
+                            'variable': variables,
+                            'daily_statistic': 'daily_mean',
+                            'year': str(yr),
+                            'month': str(mn),
+                            'day': sorted(days),
+                            'time_zone': "utc+00:00",
+                            'frequency': "1_hourly",
+                            'area': [vals[0], vals[1], vals[2], vals[3]]}
+                        print("Requesting: {}".format(request))
+                        c.retrieve('derived-era5-single-levels-daily-statistics', request ,fn_yrmn)
 
-                            if not os.path.isfile(fn_var):
+                        # Check if zip file rather than NetCDF
+                        if zipfile.is_zipfile(fn_yrmn):
+                            # Try to extract zip and merge if more than one file
+                            stem, ext = os.path.splitext(os.path.basename(fn_yrmn))
+                            zfolder = file_path.replace(ext, "")
+                            if not os.path.exists(zfolder):
+                                os.mkdir(zfolder)
+                            with zipfile.ZipFile(fn_yrmn, "r") as zip_ref:
+                                zip_ref.extractall(zfolder)
+                            ymfiles = glob.glob(os.path.join(zfolder, "*" + ext))
+                            print("Extraction of {} and merging {} {} files: {}".format(zfolder, len(ymfiles), ext,ymfiles))
+                            os.remove(fn_yrmn)
 
-                                result = c.service(
-                                    "tool.toolbox.orchestrator.workflow",
-                                    params={
-                                        "realm": "user-apps",
-                                        "project": "app-c3s-daily-era5-statistics",
-                                        "version": "master",
-                                        "kwargs": {
-                                            "dataset": "reanalysis-era5-single-levels",
-                                            "product_type": "reanalysis",
-                                            "variable": var,
-                                            "statistic": "daily_mean",
-                                            "year": str(yr),
-                                            "month": str(mn),
-                                            "time_zone": "UTC+00:0",
-                                            "frequency": "1-hourly",
-                                            "area": {"lat": [vals[2], vals[0]], "lon": [vals[1], vals[3]]}
-                                        },
-                                    "workflow_name": "application"
-                                    })
-                                c.download(result)
+                            # merge according to time
+                            merge(ymfiles, fn_yrmn, latitude=True, file_merge=True)
+                            shutil.rmtree(zfolder)
 
-                                oldfn = result[0]['location'][-39:]
-                                os.rename(oldfn, fn_var)
-                                varfiles.append(fn_var)
-
-                        # merge all variables into single file
-                        merge(varfiles,fn_yrmn)
+                        # add each date to the merge list
                         ymfiles.append(fn_yrmn)
 
             # merge all months and years into single file
@@ -356,9 +370,13 @@ def download_era5_reanalysis_data(variables: Union[Var, List[Var], List[str]],
         with zipfile.ZipFile(file_path, "r") as zip_ref:
             zip_ref.extractall(zfolder)
         ymfiles = glob.glob(os.path.join(zfolder,"*"+ext))
-        print("Extraction of zip and merging {} {} files: {}".format(len(ymfiles),ext,ymfiles))
+        print("Extraction of {} and merging {} {} files: {}".format(zfolder,len(ymfiles),ext,ymfiles))
         os.remove(file_path)
-        merge(ymfiles, file_path, latitude=True)
+        if "multi" in zfolder:
+            # merge according to time
+            merge(ymfiles, file_path, latitude=True, file_merge=True)
+        else:
+            merge(ymfiles, file_path, latitude=True)
         shutil.rmtree(zfolder)
 
     if not os.path.isfile(file_path):
