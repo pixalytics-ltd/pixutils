@@ -68,7 +68,7 @@ ext_to_file_type = {
 }
 
 # Merge NetCDF files
-def merge(files, topath, latitude = False, day_merge = False, time_merge = False, file_merge = False):
+def merge(files, topath, latitude = False, day_merge = False, time_merge = False, file_merge = False, month_merge = False):
 
     if latitude:
         coords = ['valid_time', 'latitude', 'longitude']
@@ -96,6 +96,8 @@ def merge(files, topath, latitude = False, day_merge = False, time_merge = False
         dses = [open_ds(f) for f in files]
         if file_merge:
             marray = xr.merge(dses)
+        elif month_merge:
+            marray = xr.combine_nested(dses, concat_dim=[coords[0]])
         else:
             marray = xr.concat(dses, coords[0])
         if latitude:
@@ -288,7 +290,13 @@ def download_era5_reanalysis_data(variables: Union[Var, List[Var], List[str]],
             vals = [float(v) for v in vals]
             ymfiles=[]
 
-            # TODO JC - don't do all years and months, only within requested timeframe
+            # for UTCI restrict to summer months
+            utci = False
+            if any("dewpoint" in var for var in variables):
+                utci = True
+                months = ["5","6","7","8","9"]
+
+            # Loop for all requested years and months
             for yr in list(set(years)):
                 for mn in list(set(months)):
 
@@ -326,11 +334,34 @@ def download_era5_reanalysis_data(variables: Union[Var, List[Var], List[str]],
                             merge(ymfiles, fn_yrmn, latitude=True, file_merge=True)
                             shutil.rmtree(zfolder)
 
-                        # add each date to the merge list
-                        ymfiles.append(fn_yrmn)
+                    # add each date to the merge list
+                    ymfiles.append(fn_yrmn)
 
             # merge all months and years into single file
-            merge(ymfiles,file_path)
+            if utci:
+                ds = xr.open_dataset(fn_yrmn)
+                lat = ds.latitude.values
+                lon = ds.longitude.values
+                del ds
+                merge(ymfiles,file_path,month_merge=True)
+                ds = xr.open_dataset(file_path)
+                ds['latitude'] = lat
+                ds.latitude.attrs["units"] = 'degrees_north'
+                ds['longitude'] = lon
+                ds.longitude.attrs["units"] = 'degrees_east'
+                ds.d2m.attrs["units"] = 'K'
+                ds.t2m.attrs["units"] = 'K'
+                ds.u10.attrs["units"] = 'm s**-1'
+                ds.v10.attrs["units"] = 'm s**-1'
+                ds.msdwlwrf.attrs["units"] = 'W m**-2'
+                ds.msdwswrf.attrs["units"] = 'W m**-2'
+                ds.msnlwrf.attrs["units"] = 'W m**-2'
+                ds.msnswrf.attrs["units"] = 'W m**-2'
+                os.remove(file_path)
+                ds.to_netcdf(file_path)
+                del ds
+            else:
+                merge(ymfiles, file_path, latitude=True, month_merge=True)
 
     elif area_box:
         c.retrieve(
