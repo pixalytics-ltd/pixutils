@@ -151,19 +151,22 @@ def download_utci_data(dates: Union[date, List[date]],
         os.mkdir(yfolder)
     for year in years:
         request = {
-                'variable': ['universal_thermal_climate_index'],
-                'version': '1_1',
-                'product_type': 'consolidated_dataset',
-                'year': [str(year)],
-                'month': sorted(months),
-                'day': sorted(days),
-                #'time': ['00:00'],
-                'area': [vals[0], vals[1], vals[2], vals[3]]
+                "variable": ["universal_thermal_climate_index","mean_radiant_temperature"],
+                "version": "1_1",
+                "product_type": "consolidated_dataset",
+                "year": [str(year)],
+                "month": sorted(months),
+                "day": sorted(days),
+                "area": [vals[0], vals[1], vals[2], vals[3]]
             }
         print("Requesting: {}".format(request))
         fpath = os.path.join(yfolder,str(year)+ext)
-        #c.retrieve('derived-utci-historical',
-        #    request, fpath)
+        try:
+            c.retrieve('derived-utci-historical',
+                request, fpath)
+        except:
+            print("Request to CDS for UTCI failed")
+            return
         if os.path.exists(fpath):
             print("Downloaded: {}".format(fpath))
             # Check if zip file rather than NetCDF
@@ -288,7 +291,7 @@ def download_era5_reanalysis_data(variables: Union[Var, List[Var], List[str]],
 
             # lat and lon should be float
             vals = [float(v) for v in vals]
-            ymfiles=[]
+            yfiles=[]
 
             # for UTCI restrict to summer months
             utci = False
@@ -332,10 +335,12 @@ def download_era5_reanalysis_data(variables: Union[Var, List[Var], List[str]],
 
                             # merge according to time
                             merge(ymfiles, fn_yrmn, latitude=True, file_merge=True)
+                            del ymfiles
                             shutil.rmtree(zfolder)
 
                     # add each date to the merge list
-                    ymfiles.append(fn_yrmn)
+                    if os.path.exists(fn_yrmn):
+                        yfiles.append(fn_yrmn)
 
             # merge all months and years into single file
             if utci:
@@ -343,7 +348,7 @@ def download_era5_reanalysis_data(variables: Union[Var, List[Var], List[str]],
                 lat = ds.latitude.values
                 lon = ds.longitude.values
                 del ds
-                merge(ymfiles,file_path,month_merge=True)
+                merge(yfiles,file_path,month_merge=True)
                 ds = xr.open_dataset(file_path)
                 ds['latitude'] = lat
                 ds.latitude.attrs["units"] = 'degrees_north'
@@ -361,7 +366,7 @@ def download_era5_reanalysis_data(variables: Union[Var, List[Var], List[str]],
                 ds.to_netcdf(file_path)
                 del ds
             else:
-                merge(ymfiles, file_path, latitude=True, month_merge=True)
+                merge(yfiles, file_path, latitude=True, month_merge=True)
 
     elif area_box:
         c.retrieve(
