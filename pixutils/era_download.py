@@ -8,7 +8,6 @@ import glob
 import zipfile
 import cdsapi
 import xarray as xr
-import pandas as pd
 from pathlib import Path
 from datetime import date, time, datetime
 from typing import List, Union
@@ -161,10 +160,12 @@ def download_utci_data(dates: Union[date, List[date]],
             }
         print("Requesting: {}".format(request))
         fpath = os.path.join(yfolder,str(year)+ext)
+        #return
         try:
             c.retrieve('derived-utci-historical',
                 request, fpath)
         except:
+            os.remove(yfolder)
             print("Request to CDS for UTCI failed")
             return
         if os.path.exists(fpath):
@@ -261,6 +262,13 @@ def download_era5_reanalysis_data(variables: Union[Var, List[Var], List[str]],
     # Run C3S API
     c = cdsapi.Client()
 
+    if frequency != 'monthly':
+        # for UTCI restrict daily & hourly to summer months
+        utci = False
+        if any("dewpoint" in var for var in variables):
+            utci = True
+            months = ["5", "6", "7", "8", "9"]
+
     if frequency == 'monthly':
         request = {
                 'product_type': 'monthly_averaged_reanalysis',
@@ -282,7 +290,7 @@ def download_era5_reanalysis_data(variables: Union[Var, List[Var], List[str]],
                 c.retrieve('reanalysis-era5-land-monthly-means',
                     request, file_path)
 
-    elif frequency == 'daily':
+    elif frequency == 'daily' or frequency == 'hourly':
 
         if os.path.exists(file_path):
             print("{} already downloaded".format(file_path))
@@ -307,18 +315,32 @@ def download_era5_reanalysis_data(variables: Union[Var, List[Var], List[str]],
                     fn_yrmn = prefix + '_{}.nc'.format(datestr)
 
                     if not os.path.isfile(fn_yrmn):
-                        request = {
-                            'product_type': 'reanalysis',
-                            'variable': variables,
-                            'daily_statistic': 'daily_mean',
-                            'year': str(yr),
-                            'month': str(mn),
-                            'day': sorted(days),
-                            'time_zone': "utc+00:00",
-                            'frequency': "1_hourly",
-                            'area': [vals[0], vals[1], vals[2], vals[3]]}
-                        print("Requesting: {}".format(request))
-                        c.retrieve('derived-era5-single-levels-daily-statistics', request ,fn_yrmn)
+                        if frequency == 'daily':
+                            request = {
+                                'product_type': 'reanalysis',
+                                'variable': variables,
+                                'daily_statistic': 'daily_mean',
+                                'year': str(yr),
+                                'month': str(mn),
+                                'day': sorted(days),
+                                'time_zone': "utc+00:00",
+                                'frequency': "1_hourly",
+                                'area': [vals[0], vals[1], vals[2], vals[3]]}
+                            print("Requesting: {}".format(request))
+                            c.retrieve('derived-era5-single-levels-daily-statistics', request ,fn_yrmn)
+                        else: # hourly
+
+                            request =  {
+                                'product_type': 'reanalysis',
+                                'variable': variables,
+                                'year': years,
+                                'month': str(mn),
+                                'day': days,
+                                'time': times,
+                                'format': file_format,
+                                'area': [vals[0], vals[1], vals[2], vals[3]]}
+                            print("Requesting: {}".format(request))
+                            c.retrieve(                                'reanalysis-era5-single-levels', request, fn_yrmn)
 
                         # Check if zip file rather than NetCDF
                         if zipfile.is_zipfile(fn_yrmn):
@@ -379,19 +401,6 @@ def download_era5_reanalysis_data(variables: Union[Var, List[Var], List[str]],
                 'day': days,
                 'time': times,
                 'area': [vals[0], vals[1], vals[2], vals[3]],
-                'format': file_format,
-            },
-            file_path)
-    else:
-        c.retrieve(
-            'reanalysis-era5-single-levels',
-            {
-                'product_type': 'reanalysis',
-                'variable': variables,
-                'year': years,
-                'month': months,
-                'day': days,
-                'time': times,
                 'format': file_format,
             },
             file_path)
