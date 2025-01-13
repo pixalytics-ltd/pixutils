@@ -160,12 +160,13 @@ def download_utci_data(dates: Union[date, List[date]],
             }
         print("Requesting: {}".format(request))
         fpath = os.path.join(yfolder,str(year)+ext)
-        #return
+        print("Aborting as API request has issues")
+        return
         try:
             c.retrieve('derived-utci-historical',
                 request, fpath)
         except:
-            os.remove(yfolder)
+            os.rmdir(yfolder)
             print("Request to CDS for UTCI failed")
             return
         if os.path.exists(fpath):
@@ -291,12 +292,11 @@ def download_era5_reanalysis_data(variables: Union[Var, List[Var], List[str]],
                     request, file_path)
 
     elif frequency == 'daily' or frequency == 'hourly':
-
+        # prefix for downloading parts
+        prefix = file_path.replace('.nc', '')
         if os.path.exists(file_path):
             print("{} already downloaded".format(file_path))
         else:
-            prefix = file_path.replace('.nc','')
-
             # lat and lon should be float
             vals = [float(v) for v in vals]
             yfiles=[]
@@ -312,53 +312,62 @@ def download_era5_reanalysis_data(variables: Union[Var, List[Var], List[str]],
                 for mn in list(set(months)):
 
                     datestr = str(yr) + str(mn)
+
+                    # Adjust to be more flexible in search
                     fn_yrmn = prefix + '_{}.nc'.format(datestr)
 
+                    dirname, fname = os.path.split(fn_yrmn)
+                    splits = fname.split("-")
+                    searchstr = os.path.join(dirname, splits[0][:-8] + "*" + splits[1][8:] + "-" + splits[2] + "-" + splits[3])
+                    files = glob.glob(searchstr)
                     if not os.path.isfile(fn_yrmn):
-                        if frequency == 'daily':
-                            request = {
-                                'product_type': 'reanalysis',
-                                'variable': variables,
-                                'daily_statistic': 'daily_mean',
-                                'year': str(yr),
-                                'month': str(mn),
-                                'day': sorted(days),
-                                'time_zone': "utc+00:00",
-                                'frequency': "1_hourly",
-                                'area': [vals[0], vals[1], vals[2], vals[3]]}
-                            print("Requesting: {}".format(request))
-                            c.retrieve('derived-era5-single-levels-daily-statistics', request ,fn_yrmn)
-                        else: # hourly
+                        if len(files) > 0:
+                            fn_yrmn = files[0]
+                        else:
+                            if frequency == 'daily':
+                                request = {
+                                    'product_type': 'reanalysis',
+                                    'variable': variables,
+                                    'daily_statistic': 'daily_mean',
+                                    'year': str(yr),
+                                    'month': str(mn),
+                                    'day': sorted(days),
+                                    'time_zone': "utc+00:00",
+                                    'frequency': "1_hourly",
+                                    'area': [vals[0], vals[1], vals[2], vals[3]]}
+                                print("Requesting: {}".format(request))
+                                c.retrieve('derived-era5-single-levels-daily-statistics', request ,fn_yrmn)
+                            else: # hourly
 
-                            request =  {
-                                'product_type': 'reanalysis',
-                                'variable': variables,
-                                'year': years,
-                                'month': str(mn),
-                                'day': days,
-                                'time': times,
-                                'format': file_format,
-                                'area': [vals[0], vals[1], vals[2], vals[3]]}
-                            print("Requesting: {}".format(request))
-                            c.retrieve(                                'reanalysis-era5-single-levels', request, fn_yrmn)
+                                request =  {
+                                    'product_type': 'reanalysis',
+                                    'variable': variables,
+                                    'year': str(yr),
+                                    'month': str(mn),
+                                    'day': days,
+                                    'time': times,
+                                    'format': file_format,
+                                    'area': [vals[0], vals[1], vals[2], vals[3]]}
+                                print("Requesting: {}".format(request))
+                                c.retrieve(                                'reanalysis-era5-single-levels', request, fn_yrmn)
 
-                        # Check if zip file rather than NetCDF
-                        if zipfile.is_zipfile(fn_yrmn):
-                            # Try to extract zip and merge if more than one file
-                            stem, ext = os.path.splitext(os.path.basename(fn_yrmn))
-                            zfolder = file_path.replace(ext, "")
-                            if not os.path.exists(zfolder):
-                                os.mkdir(zfolder)
-                            with zipfile.ZipFile(fn_yrmn, "r") as zip_ref:
-                                zip_ref.extractall(zfolder)
-                            ymfiles = glob.glob(os.path.join(zfolder, "*" + ext))
-                            print("Extraction of {} and merging {} {} files: {}".format(zfolder, len(ymfiles), ext,ymfiles))
-                            os.remove(fn_yrmn)
+                            # Check if zip file rather than NetCDF
+                            if zipfile.is_zipfile(fn_yrmn):
+                                # Try to extract zip and merge if more than one file
+                                stem, ext = os.path.splitext(os.path.basename(fn_yrmn))
+                                zfolder = file_path.replace(ext, "")
+                                if not os.path.exists(zfolder):
+                                    os.mkdir(zfolder)
+                                with zipfile.ZipFile(fn_yrmn, "r") as zip_ref:
+                                    zip_ref.extractall(zfolder)
+                                ymfiles = glob.glob(os.path.join(zfolder, "*" + ext))
+                                print("Extraction of {} and merging {} {} files: {}".format(zfolder, len(ymfiles), ext,ymfiles))
+                                os.remove(fn_yrmn)
 
-                            # merge according to time
-                            merge(ymfiles, fn_yrmn, latitude=True, file_merge=True)
-                            del ymfiles
-                            shutil.rmtree(zfolder)
+                                # merge according to time
+                                merge(ymfiles, fn_yrmn, latitude=True, file_merge=True)
+                                del ymfiles
+                                shutil.rmtree(zfolder)
 
                     # add each date to the merge list
                     if os.path.exists(fn_yrmn):
