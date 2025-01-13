@@ -267,7 +267,7 @@ def download_era5_reanalysis_data(variables: Union[Var, List[Var], List[str]],
         utci = False
         if any("dewpoint" in var for var in variables):
             utci = True
-            months = ["5", "6", "7", "8", "9"]
+            #months = ["5", "6", "7", "8", "9"]
 
     if frequency == 'monthly':
         request = {
@@ -305,7 +305,7 @@ def download_era5_reanalysis_data(variables: Union[Var, List[Var], List[str]],
             utci = False
             if any("dewpoint" in var for var in variables):
                 utci = True
-                months = ["5","6","7","8","9"]
+                #months = ["5","6","7","8","9"]
 
             # Loop for all requested years and months
             for yr in list(set(years)):
