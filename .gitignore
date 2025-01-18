@@ -1,1 +1,15 @@
-.idea/
+# Compiled python modules.
+*.pyc
+
+# Test script
+test-script.py
+
+# Setuptools distribution folder.
+/dist/
+
+# Python egg metadata, regenerated from source files by setuptools.
+/*.egg-info
+
+# Pycharm folder and temporary files
+/.idea
+*.py~

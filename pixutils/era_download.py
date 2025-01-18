@@ -4,6 +4,7 @@ import argparse
 import sys
 import os
 import cdsapi
+import xarray as xr
 from pathlib import Path
 from datetime import date, time, datetime
 from typing import List, Union
@@ -57,12 +58,16 @@ ext_to_file_type = {
 def download_era5_reanalysis_data(variables: Union[Var, List[Var], List[str]],
                                   dates: Union[date, List[date]],
                                   times: Union[time, List[time]],
+                                  area: str,
+                                  frequency: str,
                                   file_path: str) -> None:
     """
     Download data from the the Copernicus Climate Data Store
     :param variables: a list of fields to be downloaded on the specified dates and times
     :param dates: a single date or list of dates to be included in the file
     :param times: a single time or list of times to be included in the file
+    :param area: an area of interest to be included in the file
+    :param frequency: 'monthly','daily' or 'hourly'
     :param file_path: a path to the output file containing all of the downloaded data
     :return: a Boolean value; true, if the download completed successfully
     """
@@ -105,19 +110,123 @@ def download_era5_reanalysis_data(variables: Union[Var, List[Var], List[str]],
     variables = parse_variables()
     file_format = ext_to_file_type[extension]
 
+    # Extract AOI box values
+    vals = area.replace('[','').replace(']','').split(',')
+    area_box = False
+    for val in vals:
+        if float(val) != 0:
+            area_box = True
+
+    # Run C3S API
     c = cdsapi.Client()
-    c.retrieve(
-        'reanalysis-era5-single-levels',
-        {
-            'product_type': 'reanalysis',
-            'variable': variables,
-            'year': years,
-            'month': months,
-            'day': days,
-            'time': times,
-            'format': file_format,
-        },
-        file_path)
+
+    if frequency == 'monthly':
+        c.retrieve(
+            'reanalysis-era5-land-monthly-means',
+            {
+                'product_type': 'monthly_averaged_reanalysis',
+                'variable': variables,
+                'year': years,
+                'month': months,
+                'time': '00:00',
+                'area': [vals[0], vals[1], vals[2], vals[3]],
+                'format': file_format,
+            },
+            file_path)
+        
+    elif frequency == 'daily':
+
+        prefix = file_path.replace('.nc','')
+
+        # lat and lon should be float
+        vals = [float(v) for v in vals]
+
+        def merge(files,topath):
+            coords = ['time','lat','lon']
+            def open_ds(f):
+                with xr.open_dataset(f) as ds:
+                    rtn = ds.load()
+
+                os.remove(f)
+                return rtn.drop_vars([i for i in list(ds.coords) if not i in coords])
+            dses = [open_ds(f) for f in files]
+            xr.merge(dses).to_netcdf(topath)
+
+        ymfiles=[]
+        
+        # TODO JC - don't do all years and months, only within requested timeframe
+        for yr in list(set(years)):
+            for mn in list(set(months)):
+
+                datestr = str(yr) + str(mn)
+                fn_yrmn = prefix + '_{}.nc'.format(datestr)
+
+                if not os.path.isfile(fn_yrmn):
+                    varfiles=[]
+                    for var in variables:
+                        fn_var = prefix + '_{}_{}.nc'.format(var,datestr)
+                        
+                        if not os.path.isfile(fn_var):
+
+                            result = c.service(
+                                "tool.toolbox.orchestrator.workflow",
+                                params={
+                                    "realm": "user-apps",
+                                    "project": "app-c3s-daily-era5-statistics",
+                                    "version": "master",
+                                    "kwargs": {
+                                        "dataset": "reanalysis-era5-single-levels",
+                                        "product_type": "reanalysis",
+                                        "variable": var,
+                                        "statistic": "daily_mean",
+                                        "year": str(yr),
+                                        "month": str(mn),
+                                        "time_zone": "UTC+00:0",
+                                        "frequency": "1-hourly",
+                                        "area": {"lat": [vals[2], vals[0]], "lon": [vals[1], vals[3]]}
+                                    },
+                                "workflow_name": "application"
+                                })
+                            c.download(result)
+
+                            oldfn = result[0]['location'][-39:]
+                            os.rename(oldfn, fn_var)
+                            varfiles.append(fn_var)
+                    
+                    # merge all variables into single file
+                    merge(varfiles,fn_yrmn)
+                    ymfiles.append(fn_yrmn)
+
+        # merge all months and years into single file
+        merge(ymfiles,file_path)
+
+    elif area_box:
+        c.retrieve(
+            'reanalysis-era5-single-levels',
+            {
+                'product_type': 'reanalysis',
+                'variable': variables,
+                'year': years,
+                'month': months,
+                'day': days,
+                'time': times,
+                'area': [vals[0], vals[1], vals[2], vals[3]],
+                'format': file_format,
+            },
+            file_path)
+    else:
+        c.retrieve(
+            'reanalysis-era5-single-levels',
+            {
+                'product_type': 'reanalysis',
+                'variable': variables,
+                'year': years,
+                'month': months,
+                'day': days,
+                'time': times,
+                'format': file_format,
+            },
+            file_path)
 
     if not os.path.isfile(file_path):
         raise RuntimeError("Unable to locate output file '{}'.".format(file_path))
@@ -130,11 +239,15 @@ def main() -> int:
     parser.add_argument("variables", nargs="+", help="Specify one or more variables to be downloaded."
                                                      "  Supported variables: [{}]"
                         .format(", ".join(map_var_names.values())))
+    parser.add_argument("-a", "--area", nargs="+", help="Area to be downloaded (format: [x, x, x, x])")
     parser.add_argument("-d", "--dates", nargs="+", help="Date of the data set to be downloaded (format: YYYY-MM-DD)")
     parser.add_argument("-t", "--times", nargs="+", help="Time of the data set to be downloaded (format: HH:MM)")
+    parser.add_argument("-f", "--frequency", dest="frequency", default='monthly', help="Define frequency of accessed ECMWF data")
     parser.add_argument("-o", "--out_file", nargs=1, help="Filename for the downloaded data.")
 
     args = parser.parse_args()
+    #print("Args: {}".format(args))
+
     dates = [datetime.strptime(d, "%Y-%m-%d").date() for d in args.dates] if args.dates is not None else []
     times = [datetime.strptime(t, "%H:%M").time() for t in args.times] if args.times is not None else []
     file_path = os.path.expanduser(args.out_file[0]) if args.out_file is not None else None
@@ -151,8 +264,12 @@ def main() -> int:
         print("Missing 'times' argument.")
         return 1
 
+    # Optional area
+    if not args.area:
+        args.area = [0, 0, 0, 0]
+
     try:
-        download_era5_reanalysis_data(dates=dates, times=times, variables=args.variables, file_path=file_path)
+        download_era5_reanalysis_data(dates=dates, times=times, variables=args.variables, area=args.area, frequency=args.frequency, file_path=file_path)
 
         return 0
     except ValueError as ex:
@@ -165,4 +282,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-
