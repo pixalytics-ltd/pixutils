@@ -75,7 +75,6 @@ def merge(files, topath, latitude = False, day_merge = False, time_merge = False
         coords = ['time', 'lat', 'lon']
 
     if time_merge:
-        #marray = xr.open_mfdataset(files, combine = 'by_coords')
         for i,file in enumerate(files):
             if i == 0:
                 marray = xr.open_dataset(file)
@@ -270,7 +269,7 @@ def download_era5_reanalysis_data(variables: Union[Var, List[Var], List[str]],
             utci = True
             #months = ["5", "6", "7", "8", "9"]
 
-    if frequency == 'monthly':
+    if frequency == 'monthly' or frequency == 'wmonthly':
         request = {
                 'product_type': 'monthly_averaged_reanalysis',
                 'variable': variables,
@@ -282,7 +281,7 @@ def download_era5_reanalysis_data(variables: Union[Var, List[Var], List[str]],
                 'area': [vals[0], vals[1], vals[2], vals[3]]
             }
         if not os.path.exists(file_path):
-            if any("radiation" in var for var in variables):
+            if any("radiation" in var for var in variables) or frequency == 'wmonthly':
                 print("Requesting ERA5: {}".format(request))
                 c.retrieve('reanalysis-era5-single-levels-monthly-means',
                     request, file_path)
@@ -432,6 +431,11 @@ def download_era5_reanalysis_data(variables: Union[Var, List[Var], List[str]],
         else:
             merge(ymfiles, file_path, latitude=True)
         shutil.rmtree(zfolder)
+    else:
+        marray = xr.open_dataset(file_path)
+        marray = marray.rename(name_dict={'valid_time': 'time'})
+        os.remove(file_path)
+        marray.to_netcdf(file_path)
 
     if not os.path.isfile(file_path):
         raise RuntimeError("Unable to locate output file '{}'.".format(file_path))
