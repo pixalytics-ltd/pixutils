@@ -433,9 +433,11 @@ def download_era5_reanalysis_data(variables: Union[Var, List[Var], List[str]],
         shutil.rmtree(zfolder)
     else:
         marray = xr.open_dataset(file_path)
-        marray = marray.rename(name_dict={'valid_time': 'time'})
-        os.remove(file_path)
-        marray.to_netcdf(file_path)
+        if any("valid_time" in var for var in marray.variables):
+            marray = marray.rename(name_dict={'valid_time': 'time'})
+            os.remove(file_path)
+            marray.to_netcdf(file_path)
+        del marray
 
     if not os.path.isfile(file_path):
         raise RuntimeError("Unable to locate output file '{}'.".format(file_path))
